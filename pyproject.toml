@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "terrain-memory-prosthesis"
+version = "0.1.0"
+description = "Terrain perception and controller memory for powered ankle prosthesis control in MyoAssist"
+requires-python = ">=3.11,<3.12"
+
+dependencies = [
+    "numpy>=1.26",
+    "PyYAML>=6.0",
+    "torch>=2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

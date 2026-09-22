@@ -1,0 +1,23 @@
+experiment:
+  name: P2C1
+
+environment:
+  human_model: myolegs22
+  prosthesis: OpenSourceLeg_A_L1
+
+perception:
+  type: terrain_preview
+  terrain_preview: true
+  preview_distances_m:
+    - 0.2
+    - 0.4
+    - 0.6
+    - 0.8
+    - 1.0
+  noise_std: 0.0
+  dropout_probability: 0.0
+
+controller:
+  type: feedforward
+  algorithm: ppo
+  recurrent: false

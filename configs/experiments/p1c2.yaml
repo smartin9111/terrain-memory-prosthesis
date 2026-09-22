@@ -1,0 +1,16 @@
+experiment:
+  name: P1C2
+
+environment:
+  human_model: myolegs22
+  prosthesis: OpenSourceLeg_A_L1
+
+perception:
+  type: proprioception
+  terrain_preview: false
+
+controller:
+  type: recurrent
+  algorithm: ppo
+  recurrent: true
+  recurrent_unit: gru
