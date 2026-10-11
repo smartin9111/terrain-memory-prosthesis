@@ -99,7 +99,7 @@ def plot(out, runs, args, curves):
         ax[1].errorbar(
             x,
             [r["fall_rate"] for r in rows],
-            yerr=[[r["fall_rate"] - r["fall_ci_lo"] for r in rows], [r["fall_ci_hi"] - r["fall_rate"] for r in rows]],
+            yerr=[[max(0.0, r["fall_rate"] - r["fall_ci_lo"]) for r in rows], [max(0.0, r["fall_ci_hi"] - r["fall_rate"]) for r in rows]],
             fmt="o-",
             capsize=3,
             label=tag,

@@ -33,9 +33,9 @@ def parse():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--session", required=True)
     ap.add_argument("--checkpoint", default=None, help="default: latest checkpoint")
-    ap.add_argument("--amps", default="0.01,0.02,0.03,0.04,0.06", help="random-terrain amplitudes [m]")
+    ap.add_argument("--amps", default="0.0005,0.002,0.005,0.01,0.02,0.04", help="random-terrain amplitudes [m]; 0.0005 is a ~flat sanity control (the hfield path itself must not make the walker fall)")
     ap.add_argument("--terrain-seeds", type=int, default=3, help="different random terrains per amplitude")
-    ap.add_argument("--sin-amps", default="0.02,0.04")
+    ap.add_argument("--sin-amps", default="0.0005,0.01,0.02")
     ap.add_argument("--sin-period", type=float, default=1.0)
     ap.add_argument("--episodes", type=int, default=10, help="episodes per terrain instance")
     ap.add_argument("--max-steps", type=int, default=600)
@@ -112,7 +112,7 @@ def main():
             ss = [s for s in summary if s["kind"] == kind]
             if ss:
                 ax.errorbar([s["amplitude"] * 100 for s in ss], [s["fall_rate"] for s in ss],
-                            yerr=[[s["fall_rate"] - s["fall_ci_lo"] for s in ss], [s["fall_ci_hi"] - s["fall_rate"] for s in ss]], fmt="o-", capsize=3, label=kind)
+                            yerr=[[max(0.0, s["fall_rate"] - s["fall_ci_lo"]) for s in ss], [max(0.0, s["fall_ci_hi"] - s["fall_rate"]) for s in ss]], fmt="o-", capsize=3, label=kind)
         fl = [s for s in summary if s["kind"] == "flat"][0]
         ax.axhline(fl["fall_rate"], c="gray", ls=":", label="flat")
         ax.axhspan(args.band_lo, args.band_hi, color="g", alpha=0.1, label="target band")
