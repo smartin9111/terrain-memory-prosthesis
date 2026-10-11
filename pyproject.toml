@@ -4,14 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "terrain-memory-prosthesis"
-version = "0.1.0"
+version = "0.2.0"
 description = "Terrain perception and controller memory for powered ankle prosthesis control in MyoAssist"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.11,<3.13"
 
+# MyoAssist itself is NOT listed here: it is installed from the sibling clone (see README, "Setup"), because its
+# MyoSuite pin needs uv's override (plain pip cannot resolve it) and the scripts use the clone's configs / docs.
 dependencies = [
     "numpy>=1.26",
     "PyYAML>=6.0",
     "torch>=2.2",
+    "stable-baselines3>=2.3",
+    "sb3-contrib>=2.3",   # RecurrentPPO (LSTM) for the 04 memory toy; keep the same minor version as stable-baselines3
+    "matplotlib>=3.8",
 ]
 
 [project.optional-dependencies]
@@ -25,3 +30,4 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = ["myoassist: needs the MyoAssist checkout (rl_train) installed; skipped otherwise"]

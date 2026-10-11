@@ -22,3 +22,16 @@ controller:
   algorithm: ppo
   recurrent: true
   recurrent_unit: gru
+
+training:
+  stage1_config: configs/experiments/stage1_flat_osl.json   # human + prosthesis learn to walk (flat); the human is then frozen
+  freeze_human: true          # stage 2 trains the prosthesis controller only (utils/freeze.py)
+  privileged_critic: true     # critic sees the preview in P1 AND P2 -> identical value baseline in all four conditions
+  env_id: myoAssistLegImitationExoPreview-v0
+
+terrain:
+  type: random                # flat -> mild random heightfield, no stairs at first
+  amplitude_m: null           # take from scripts/pilots/03a_terrain_calibration.py
+  extent_m: 60                # upstream default (20 m, 3 m flat start) is too short for 30 s of walking
+  eval_terrain_seeds: [1, 2, 3]   # fixed held-out terrains, never used for training
+

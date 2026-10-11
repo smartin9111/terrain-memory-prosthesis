@@ -29,39 +29,70 @@ Research project investigating the trade-off between exteroceptive terrain perce
 
 How much exteroceptive terrain preview is required for robust prosthetic locomotion, and can temporal controller memory compensate for incomplete or noisy environmental perception?
 
+## Training Scheme
+
+1. **Stage 1** - the human (muscle policy) and a prosthesis actor learn to walk on flat ground with MyoAssist's own `run_train.py`
+   (`configs/experiments/stage1_flat_osl.json`; recipe of the previous SDU project: 30M steps, ~10 h on 64 CPUs).
+2. **Stage 2** - the human is copied into a new policy and **frozen** (`utils/freeze.py`); only the prosthesis controller is trained.
+   P1/P2 and C1/C2 therefore differ *only* in the prosthesis controller. The critic sees the terrain preview in both P1 and P2.
+3. Terrain: flat -> mild random heightfield (2-5 cm), no stairs at first; fixed training distribution, fixed held-out evaluation terrains.
+
+Before any long training, run the pilots in `scripts/pilots/` (see its README): do the human walk with the prosthesis, is the
+freeze correct, does the prosthesis matter, which terrain amplitude leaves headroom, does preview help at all, does the
+recurrent pipeline learn memory.
+
+## Setup
+
+Layout: MyoAssist is a sibling clone of this repo (`../myoassist`). Tested with commit `b1baf69da59dc6728515d0977cbc8fbf00b9225a` on Python 3.12 (MyoSuite 2.8.4, MuJoCo 3.4).
+
+```bash
+cd terrain-memory-prosthesis
+uv venv --python 3.12 && source .venv/bin/activate
+(cd ../myoassist && uv pip install -e .)     # plain pip cannot resolve MyoSuite's pins; uv uses MyoAssist's override
+uv pip install -e ".[dev]"
+pytest                                        # unit tests (no MyoAssist needed for most)
+```
+
+`scripts/pilots/*` find MyoAssist automatically (installed `rl_train`, `$MYOASSIST_DIR`, or `../myoassist`).
+
 ## Repository Structure
 
-configs/ - Experiment configurations
-
+```
+configs/experiments/
+  p1c1.yaml ... p2c2.yaml        experiment definitions (documentation of the 2x2 design; not parsed by code yet)
+  p1c1_myoassist.json            MyoAssist session config: P1xC1 on 6 cm random terrain, 200k-step smoke recipe
+  stage1_flat_osl.json           MyoAssist session config: Stage 1 (flat, proprioception-only prosthesis actor, 30M-step recipe)
 src/terrain_memory_prosthesis/
-- perception/ - Perception methods
-- controllers/ - Controller architectures
-- envs/ - MyoAssist integration
-- evaluation/ - Evaluation metrics
-- utils/ - Shared utilities
-
-scripts/ - Training and evaluation scripts
-
-tests/ - Unit tests
-
-results/ - Experiment outputs
-
-docs/ - Project documentation
+  perception/terrain_preview.py  P2 exteroception: ray-cast terrain heights ahead of the pelvis (TODO: noise/dropout/delay)
+  controllers/                   C1 (MLP) / C2 (GRU) prosthesis controllers (TODO)
+  envs/terrain.py                MyoAssist terrain dicts (60 m field instead of the 20 m default)
+  envs/terrain_preview.py        myoAssistLegImitationExoPreview-v0 = base env + preview block obs[40:45]
+  evaluation/reporting.py        Wilson CI, summaries, verdicts / exit codes
+  evaluation/rollout.py          seeded deterministic rollouts, prosthesis-command perturbations, parallel evaluation
+  utils/myoassist.py             locating MyoAssist, loading configs/checkpoints, building envs/models
+  utils/session_config.py        derive P1 / P2 session configs from a base config
+  utils/freeze.py                load the Stage-1 human into a Stage-2 policy and freeze it
+scripts/                         check_myoassist.py, check_prosthesis_env.py, inspect_osl_model.py, view_prosthesis.py
+scripts/pilots/                  pilot validation scripts 00-04 + README
+tests/                           unit tests
+results/                         experiment outputs (git-ignored)
+docs/                            project documentation
+```
 
 ## Development Responsibilities
 
 ### Perception
 - Proprioceptive observation
-- Terrain preview
-- Noise / dropout / delay
+- Terrain preview (`perception/terrain_preview.py`: pilot implementation exists, to be reviewed/extended)
+- Noise / dropout / delay (not started). Rule: perception carries no hidden memory; dropout = zeros + validity bit; same delay for both controllers
 
 ### Control
-- Feed-forward PPO
-- GRU-based recurrent controller
-- Controller evaluation
+- Feed-forward PPO (MyoAssist multi-actor policy; Stage 2 trains the `exo_actor`)
+- GRU-based recurrent controller (sb3-contrib `RecurrentPPO` is LSTM-only and not compatible with MyoAssist's multi-actor policy: needs its own implementation)
+- Controller evaluation (`evaluation/`)
 
 ### Shared
-- MyoAssist integration
+- MyoAssist integration (`utils/`, `envs/`)
 - Experiments
 - Results
 - Report
