@@ -13,6 +13,7 @@ import os
 
 import numpy as np
 
+from terrain_memory_prosthesis.envs.stiff_limit import harden_device_limits
 from terrain_memory_prosthesis.perception.terrain_preview import preview_distances, terrain_preview
 
 PREVIEW_ENV_ID = "myoAssistLegImitationExoPreview-v0"
@@ -21,27 +22,9 @@ _ENTRY_POINT = "terrain_memory_prosthesis.envs.terrain_preview:MyoAssistLegImita
 
 def register():
     """Idempotent: register the env id and teach MyoAssist's EnvironmentHandler about it."""
-    from rl_train.envs import register_env_myoassist
-    from rl_train.envs import environment_handler as eh
-    from myosuite.utils import gym
+    from terrain_memory_prosthesis.envs._registry import register_exo_env
 
-    if PREVIEW_ENV_ID not in gym.envs.registry:
-        register_env_myoassist(id=PREVIEW_ENV_ID, entry_point=_ENTRY_POINT, max_episode_steps=1000, kwargs={})
-    if PREVIEW_ENV_ID not in eh._EXO_ENV_IDS:
-        eh._EXO_ENV_IDS = tuple(eh._EXO_ENV_IDS) + (PREVIEW_ENV_ID,)
-    H = eh.EnvironmentHandler
-    if not getattr(H, "_preview_patched", False):
-        orig = H.get_config_type_from_session_id
-
-        def get_config_type_from_session_id(session_id, _orig=orig):
-            if session_id == PREVIEW_ENV_ID:
-                from rl_train.train.train_configs.config_imiatation_exo import ExoImitationTrainSessionConfig
-
-                return ExoImitationTrainSessionConfig
-            return _orig(session_id)
-
-        H.get_config_type_from_session_id = staticmethod(get_config_type_from_session_id)
-        H._preview_patched = True
+    register_exo_env(PREVIEW_ENV_ID, _ENTRY_POINT)
 
 
 def _make_env_class():
@@ -54,6 +37,8 @@ def _make_env_class():
             self._pv_dist = preview_distances()
             self._pv_zero = os.environ.get("MYO_PREVIEW_ZERO", "0") == "1"
             super()._setup(**kwargs)
+            m = self.sim.model
+            harden_device_limits(getattr(m, "ptr", m))  # same hard prosthesis limit as the Stage-1 env (see envs/stiff_limit.py)
 
         def get_obs_dict(self, sim):
             obs = super().get_obs_dict(sim)

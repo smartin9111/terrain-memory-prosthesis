@@ -8,7 +8,9 @@
 # (16, 32, 64); use roughly the number of physical cores, leave a few vCPUs for the PPO update.
 #   ENVS=32 (default)  THREADS=8 (torch threads of the update; MyoAssist's measured optimum)  TOTAL=30000000
 # Results: $WS/myoassist/rl_train/results/train_session_<timestamp>/  (checkpoints every 10 rollouts ~ 164k steps)
-# Optional: CFG=<config.json> (default: our prosthesis config), TAG=<name> (goes into the log file name), e.g. the control run
+# Default config: stage1_flat_osl_stiff.json (hard prosthesis joint limit; the soft stock limit let the foot spin). The old soft-limit
+# config is stage1_flat_osl.json. Training goes through scripts/train.py (registers our env ids, then runs run_train.py).
+# Optional: CFG=<config.json>, TAG=<name> (goes into the log file name), e.g. the control run
 #   CFG=$WS/myoassist/rl_train/train/train_configs/imitation_tutorial_22_separated_net_full_obs.json TAG=control TOTAL=6000000 \
 #     ENVS=16 THREADS=2 bash scripts/ucloud/stage1.sh full
 set -euo pipefail
@@ -22,11 +24,11 @@ WS="${WS:-$(cd "$HERE/../../.." && pwd)}"
 ENVS="${ENVS:-32}"; THREADS="${THREADS:-8}"; TOTAL="${TOTAL:-30000000}"; LOGFREQ="${LOGFREQ:-10}"
 [ $((16384 % ENVS)) -eq 0 ] || { echo "ENVS must divide 16384 (16, 32, 64)"; exit 1; }
 NSTEPS=$((16384 / ENVS))
-CFG="${CFG:-$WS/terrain-memory-prosthesis/configs/experiments/stage1_flat_osl.json}"; TAG="${TAG:-stage1}"
+CFG="${CFG:-$WS/terrain-memory-prosthesis/configs/experiments/stage1_flat_osl_stiff.json}"; TAG="${TAG:-stage1}"
 if [ "$MODE" = measure ]; then TOTAL=65536; LOGFREQ=1000; fi
 
 cd "$WS/myoassist"   # run_train writes rl_train/results/ relative to the current directory = the persistent folder
-CMD=(python rl_train/run_train.py --config_file_path "$CFG"
+CMD=(python "$WS/terrain-memory-prosthesis/scripts/train.py" --config_file_path "$CFG"
      --config.env_params.num_envs "$ENVS" --config.ppo_params.n_steps "$NSTEPS"
      --config.total_timesteps "$TOTAL" --config.logger_params.logging_frequency "$LOGFREQ")
 

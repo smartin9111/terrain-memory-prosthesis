@@ -21,6 +21,7 @@ ORIG_CWD = os.getcwd()
 # <workspace>/terrain-memory-prosthesis/src/terrain_memory_prosthesis/utils/myoassist.py -> <workspace>/myoassist
 SIBLING_MYOASSIST = Path(__file__).resolve().parents[4] / "myoassist"
 PREVIEW_ENV_IDS = ("myoAssistLegImitationExoPreview-v0",)
+STIFF_ENV_ID = "myoAssistLegImitationExoStiff-v0"
 
 
 def resolve(p):
@@ -95,6 +96,10 @@ def ensure_env_registered(env_id: str):
         from terrain_memory_prosthesis.envs import terrain_preview
 
         terrain_preview.register()
+    elif env_id == STIFF_ENV_ID:
+        from terrain_memory_prosthesis.envs import stiff_limit
+
+        stiff_limit.register()
 
 
 def load_config(path: str):

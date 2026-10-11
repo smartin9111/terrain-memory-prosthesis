@@ -72,6 +72,9 @@ def main():
         with common.seeded_rng(seed):
             obs, _ = env.reset()
         frames, xs, hs, cmd = [], [], [], []
+        jn = {"prosthesis ankle (r)": "OSL_A_L1_osl_ankle_angle_r", "human ankle (l)": "ankle_angle_l", "knee r": "knee_angle_r", "knee l": "knee_angle_l"}
+        jn = {k: v for k, v in jn.items() if _has(env, v)}
+        ang = {k: [] for k in jn}
         dev = common.device_actuator_ids(env)
         fell = False
         for t in range(args.max_steps):
@@ -81,6 +84,8 @@ def main():
             h = float(env.sim.data.joint("pelvis_ty").qpos[0]) if _has(env, "pelvis_ty") else float("nan")
             xs.append(x)
             hs.append(h)
+            for k, v in jn.items():
+                ang[k].append(float(np.degrees(env.sim.data.joint(v).qpos[0])))
             cmd.append(float(np.mean(np.asarray(a)[dev])) if dev else 0.0)
             cam.lookat[:] = [x, 0.0, 0.9]
             renderer.update_scene(mj_data, camera=cam)
@@ -91,9 +96,18 @@ def main():
             if truncated:
                 break
         print(f"seed {seed}: {len(frames)} steps ({len(frames) / fps:.1f} s), fell={fell}, distance={xs[-1] - xs[0]:.2f} m")
+        pa = ang.get("prosthesis ankle (r)")
+        if pa:
+            j = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_JOINT, "OSL_A_L1_osl_ankle_angle_r")
+            lim = float(np.degrees(mj_model.jnt_range[j][1]))
+            over = float(np.mean(np.abs(pa) > lim + 2.0))
+            print(
+                f"  prosthesis ankle: min {min(pa):.0f} / max {max(pa):.0f} deg (joint limit +-{lim:.0f}); "
+                f"{over:.0%} of steps beyond the limit by >2 deg  -> {'LIMIT NOT HOLDING' if over > 0.05 else 'ok'}"
+            )
         path = save_video(out, f"walk_seed{seed}", frames, fps)
         print("saved", path)
-        save_trace(out, seed, xs, hs, cmd, env.dt, fell)
+        save_trace(out, seed, xs, hs, cmd, env.dt, fell, ang)
     renderer.close()
     env.close()
     return 0
@@ -121,7 +135,7 @@ def save_video(out, stem, frames, fps):
         return p
 
 
-def save_trace(out, seed, xs, hs, cmd, dt, fell):
+def save_trace(out, seed, xs, hs, cmd, dt, fell, ang=None):
     try:
         import matplotlib
 
@@ -129,13 +143,17 @@ def save_trace(out, seed, xs, hs, cmd, dt, fell):
         import matplotlib.pyplot as plt
 
         t = [i * dt for i in range(len(xs))]
-        fig, ax = plt.subplots(1, 3, figsize=(13, 3.2))
+        fig, ax = plt.subplots(1, 4, figsize=(17, 3.2))
         ax[0].plot(t, [x - xs[0] for x in xs])
         ax[0].set_title("distance walked [m]")
         ax[1].plot(t, hs)
         ax[1].set_title("pelvis height [m]" + ("  (FELL)" if fell else ""))
         ax[2].plot(t, cmd)
         ax[2].set_title("mean prosthesis command")
+        for k, v in (ang or {}).items():
+            ax[3].plot(t, v, label=k)
+        ax[3].set_title("joint angles [deg]")
+        ax[3].legend(fontsize=7)
         for a in ax:
             a.set_xlabel("time [s]")
             a.grid(alpha=0.3)
