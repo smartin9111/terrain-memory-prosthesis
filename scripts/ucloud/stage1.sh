@@ -5,11 +5,13 @@
 #   bash scripts/ucloud/stage1.sh full       # 30M steps in the background (nohup), log + checkpoints in the persistent folder
 #
 # Recipe: rollout = ENVS x NSTEPS = 16384, minibatch 8192, 30 epochs, lr 1e-4 (previous SDU project). ENVS must divide 16384
-# (16, 32, 64); use roughly the number of physical cores, leave a few vCPUs for the PPO update.
+# (16, 32, 64, 128); use roughly the number of physical cores, leave a few vCPUs for the PPO update.
 #   ENVS=32 (default)  THREADS=8 (torch threads of the update; MyoAssist's measured optimum)  TOTAL=30000000
 # Results: $WS/myoassist/rl_train/results/train_session_<timestamp>/  (checkpoints every 10 rollouts ~ 164k steps)
-# Default config: stage1_flat_osl_phys.json (hard ankle limit + OSL motor model + heightfield ground). Older: stage1_flat_osl_stiff.json
-# (limit only), stage1_flat_osl.json (stock soft limit, plane). Training goes through scripts/train.py (registers our env ids, then runs run_train.py).
+# Default config: stage1_flat_final.json = OSL physics (hard ankle limit + motor model) + 160 m heightfield ground (25 cm cells)
+# + no-flight/foot-force and prosthesis-effort penalties (see docs/stage1_findings.md). Older configs, kept for the history:
+# stage1_flat_osl_phys.json (same physics, original reward -> hopping), stage1_flat_osl_stiff.json (limit only), stage1_flat_osl.json (stock). Training goes through scripts/train.py (registers our env ids, then runs run_train.py).
+# Optional: PREV=<model.zip> warm start (fine-tune a checkpoint, e.g. after a reward change), TOTAL=<steps> then counts the new steps.
 # Optional: CFG=<config.json>, TAG=<name> (goes into the log file name), e.g. the control run
 #   CFG=$WS/myoassist/rl_train/train/train_configs/imitation_tutorial_22_separated_net_full_obs.json TAG=control TOTAL=6000000 \
 #     ENVS=16 THREADS=2 bash scripts/ucloud/stage1.sh full
@@ -24,13 +26,16 @@ WS="${WS:-$(cd "$HERE/../../.." && pwd)}"
 ENVS="${ENVS:-32}"; THREADS="${THREADS:-8}"; TOTAL="${TOTAL:-30000000}"; LOGFREQ="${LOGFREQ:-10}"
 [ $((16384 % ENVS)) -eq 0 ] || { echo "ENVS must divide 16384 (16, 32, 64)"; exit 1; }
 NSTEPS=$((16384 / ENVS))
-CFG="${CFG:-$WS/terrain-memory-prosthesis/configs/experiments/stage1_flat_osl_phys.json}"; TAG="${TAG:-stage1}"
+CFG="${CFG:-$WS/terrain-memory-prosthesis/configs/experiments/stage1_flat_final.json}"; TAG="${TAG:-stage1}"
 if [ "$MODE" = measure ]; then TOTAL=65536; LOGFREQ=1000; fi
+# PREV=<model.zip>: warm start (fine-tune) from an earlier checkpoint instead of random init
+PREV="${PREV:-}"
 
 cd "$WS/myoassist"   # run_train writes rl_train/results/ relative to the current directory = the persistent folder
 CMD=(python "$WS/terrain-memory-prosthesis/scripts/train.py" --config_file_path "$CFG"
      --config.env_params.num_envs "$ENVS" --config.ppo_params.n_steps "$NSTEPS"
      --config.total_timesteps "$TOTAL" --config.logger_params.logging_frequency "$LOGFREQ")
+if [ -n "$PREV" ]; then CMD+=(--config.env_params.prev_trained_policy_path "$PREV"); fi
 
 if [ "$MODE" = measure ]; then
   MYOASSIST_NUM_THREADS="$THREADS" "${CMD[@]}" 2>&1 | grep -E "fps|total_timesteps|it/s|Error|Traceback" || true

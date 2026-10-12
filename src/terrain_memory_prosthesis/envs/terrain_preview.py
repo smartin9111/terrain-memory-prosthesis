@@ -13,7 +13,7 @@ import os
 
 import numpy as np
 
-from terrain_memory_prosthesis.envs.osl_physics import apply_osl_physics
+from terrain_memory_prosthesis.envs.osl_physics import NoFlightPenaltyMixin, apply_osl_physics
 from terrain_memory_prosthesis.perception.terrain_preview import preview_distances, terrain_preview
 
 PREVIEW_ENV_ID = "myoAssistLegImitationExoPreview-v0"
@@ -30,7 +30,7 @@ def register():
 def _make_env_class():
     from rl_train.envs.myoassist_leg_imitation_exo import MyoAssistLegImitationExo
 
-    class MyoAssistLegImitationExoPreview(MyoAssistLegImitationExo):
+    class MyoAssistLegImitationExoPreview(NoFlightPenaltyMixin, MyoAssistLegImitationExo):
         DEFAULT_OBS_KEYS = MyoAssistLegImitationExo.DEFAULT_OBS_KEYS + ["terrain_preview"]
 
         def _setup(self, **kwargs):

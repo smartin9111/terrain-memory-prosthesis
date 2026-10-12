@@ -31,3 +31,30 @@ def test_motor_model_matches_spec_and_is_stable():
         w = max(w, abs(d.qvel[0]))
     assert w <= PEAK_SPEED * 1.1  # free speed at full command = spec speed (never exceeded)
     assert abs(np.degrees(d.qpos[0])) <= 33.0  # hard stop holds
+
+
+def test_no_flight_penalty_only_without_foot_contact():
+    """The walking term: -dt in `foot_force_penalty` exactly when both feet carry < FLIGHT_FORCE_N (no env needed)."""
+    from terrain_memory_prosthesis.envs.osl_physics import FLIGHT_FORCE_N, NoFlightPenaltyMixin
+
+    class Base:
+        dt = 1.0 / 30.0
+
+        def _calculate_imitation_rewards(self, obs_dict):
+            return {"foot_force_penalty": -0.01}, {}
+
+    class Env(NoFlightPenaltyMixin, Base):
+        def __init__(self, r, l):
+            self.f = {"r": r, "l": l}
+
+        def _get_foot_force(self, side):
+            return self.f[side]
+
+    stance, info = Env(300.0, 0.0)._calculate_imitation_rewards(None)
+    assert stance["foot_force_penalty"] == pytest.approx(-0.01) and info["flight"] is False
+    flight, info = Env(0.0, 0.0)._calculate_imitation_rewards(None)
+    assert flight["foot_force_penalty"] == pytest.approx(-0.01 - Base.dt) and info["flight"] is True
+    near, _ = Env(0.4 * FLIGHT_FORCE_N, 0.4 * FLIGHT_FORCE_N)._calculate_imitation_rewards(None)  # 0.8 N total: still flight
+    assert near["foot_force_penalty"] == pytest.approx(-0.01 - Base.dt)
+    touch, _ = Env(0.6 * FLIGHT_FORCE_N, 0.6 * FLIGHT_FORCE_N)._calculate_imitation_rewards(None)  # 1.2 N total: contact
+    assert touch["foot_force_penalty"] == pytest.approx(-0.01)

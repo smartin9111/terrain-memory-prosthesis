@@ -15,6 +15,13 @@ Model (applied after the model is built, the MyoAssist files are untouched):
     inertia) and physically there (J_rotor * 41.5^2). Its value is NOT in the OSL documentation: ASSUMPTION 0.1 kg m^2
     (rotor ~6e-5 kg m^2 x 41.5^2); results should be checked for sensitivity (0.05 .. 0.2).
 
+Walking constraint (reward, measured need): the Stage-1 policy learned a hopping/running gait (23 % of the steps with no foot on the
+ground, 19 cm pelvis bounce, 1.5 m/s vs the 1.25 m/s target) that survived a 10x higher pelvis_ty imitation weight, because that term is
+exp(-8 d^2) with d in METRES (a 10 cm error costs only 8 %). Walking by definition has no flight phase, so the env adds
+`-dt` for every control step in which both feet (r_foot+r_toes, l_foot+l_toes touch sensors) carry < FLIGHT_FORCE_N. It is folded
+into the existing `foot_force_penalty` term, so its weight is `reward_keys_and_weights.foot_force_penalty` in the config
+(that weight also scales the impact term max(0, F/W - 1.2)).
+
 Usage: config env_params.env_id = "myoAssistLegImitationExoOSLPhys-v0".
 """
 from __future__ import annotations
@@ -23,6 +30,7 @@ OSL_PHYS_ENV_ID = "myoAssistLegImitationExoOSLPhys-v0"
 _ENTRY_POINT = "terrain_memory_prosthesis.envs.osl_physics:MyoAssistLegImitationExoOSLPhys"
 PEAK_TORQUE = 145.25  # Nm (OSL spec page, instantaneous)
 PEAK_SPEED = 6.13  # rad/s (OSL spec page)
+FLIGHT_FORCE_N = 1.0  # both feet below this total touch force = flight phase (same threshold as scripts/pilots/05_render_video.py)
 ARMATURE = 0.1  # kg m^2 reflected rotor inertia (assumption, see module doc)
 ANKLE_JOINT_SUFFIX = "osl_ankle_angle_r"
 ANKLE_ACTUATOR_SUFFIX = "osl_ankle_torque_actuator"
@@ -60,10 +68,28 @@ def register():
     register_exo_env(OSL_PHYS_ENV_ID, _ENTRY_POINT)
 
 
+class NoFlightPenaltyMixin:
+    """Adds -dt per control step without any foot contact to the `foot_force_penalty` reward term (weight: see module doc).
+
+    Hooks `_calculate_imitation_rewards` (not `_calculate_base_reward`): the imitation env calls `super()._calculate_base_reward`
+    directly, so an override of the latter would never run for the imitation envs used here.
+    """
+
+    def _calculate_imitation_rewards(self, obs_dict):
+        rewards, info = super()._calculate_imitation_rewards(obs_dict)
+        total = abs(float(self._get_foot_force("r"))) + abs(float(self._get_foot_force("l")))
+        in_flight = total < FLIGHT_FORCE_N
+        if in_flight:
+            rewards["foot_force_penalty"] = rewards["foot_force_penalty"] - self.dt
+        info = dict(info)
+        info["flight"] = bool(in_flight)
+        return rewards, info
+
+
 def _make_env_class():
     from rl_train.envs.myoassist_leg_imitation_exo import MyoAssistLegImitationExo
 
-    class MyoAssistLegImitationExoOSLPhys(MyoAssistLegImitationExo):
+    class MyoAssistLegImitationExoOSLPhys(NoFlightPenaltyMixin, MyoAssistLegImitationExo):
         def _setup(self, **kwargs):
             super()._setup(**kwargs)
             m = self.sim.model
