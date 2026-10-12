@@ -24,9 +24,22 @@ to all of them equally. Final config: `configs/experiments/stage1_flat_final.jso
 | `+ nohop` 8M fine-tune | pelvis_ty weights x10, foot_force 2.0 | 22-23 % | 30-31 m |
 | `+ walk` 8M fine-tune | flight penalty 3 | 18-20 % | 30 m |
 | `+ walk2` 8M fine-tune | flight penalty 8 + exo effort 0.5 | 14-16 % | 28 m |
-| **`stage1_flat_final` from scratch, 30M** | same reward as walk2 | **1-2 %** (28.9M checkpoint) | 26.8 m, 1.34 m/s, ankle -15..+30 deg |
+| **`stage1_flat_final` from scratch, 30M** | same reward as walk2 | **0-1 %** | 26.6-27.0 m, 1.34 m/s, ankle -18..+30 deg, no fall |
 
 Fine-tuning a hopping policy does not leave the hopping basin in 8M steps; the penalty has to act from the start.
+
+## Final Stage-1 policy (`train_session_20261012-174642`, checkpoint `model_29999104`, 30M steps) - gate results
+
+| Check | Result |
+|---|---|
+| 05 walk video, 3 seeds x 20 s | no fall; flight 0-1 %; 26.6-27.0 m (1.34 m/s, target 1.25); pelvis bounce 12-15 cm (includes the settling at the start); prosthesis ankle -18..+30 deg, 0 % beyond the limit |
+| 00 walk check (10 episodes x 1000 steps, 160 m field) | **PASS**: fall rate 0.00 (Wilson 95 % CI [0, 0.28]), speed 1.34 m/s |
+| `check_ankle_limit.py` A (gravity off) / B (policy walking) | phys: PASS / PASS (peak ankle speed 7 rad/s) |
+| 03a terrain calibration (flat-trained, blind) | flat baseline fall 0.00; random 6 cm: **80 %** falls |
+| 02 prosthesis sensitivity | zero torque: 100 % falls (prosthesis is essential); torque x0.5: 100 %, x0.75: 5 % -> **brittle below ~0.75 of the nominal torque** (WARN) |
+
+The walking policy is *less* robust on rough ground than the earlier hopping one (random 6 cm: 80 % vs 43 % falls), i.e. there is
+real headroom for a terrain-aware prosthesis controller already at a few centimetres.
 
 ## Evaluation pitfalls (do not repeat)
 
@@ -37,13 +50,15 @@ Fine-tuning a hopping policy does not leave the hopping basin in 8M steps; the p
 * The training episode length is not a walking measure (early termination); the termination-independent pilot `00` is.
 * Checkpoints sort numerically with `ls -v` (not `sort -t_ -k2`, the session path itself contains underscores).
 
-## Terrain headroom of a flat-trained, blind policy (measured on the *hopping* 30M policy, 25 cm cells; recalibrate with the final one)
+## Terrain headroom of a flat-trained, blind policy (25 cm cells)
 
-random 0.5-4 cm: no falls ("easy"); random 6 cm: 43 % falls; sinusoidal (period 1 m) 8 cm: 80 % falls. A Stage-2 terrain of
-2-5 cm random would therefore leave the preview nothing to gain; use the 6-10 cm band (and/or slopes: `terrain: "slope"`, `deg`).
+Hopping policy (earlier): random 0.5-4 cm no falls, 6 cm 43 %, sinusoidal (period 1 m) 8 cm 80 %. Final walking policy: random 6 cm 80 %
+(see the 03a table in `eval_final/03a` for the other amplitudes). Choose the Stage-2 training terrain from the 03a table of the
+final policy (target: blind fall rate 20-80 %), optionally slopes (`terrain: "slope"`, `deg`).
 
 ## Open
 
-* Final numbers of `stage1_flat_final` at 30M (00, ankle test B, 03a, 02) -> `eval_final/`.
+* Pick the Stage-2 terrain band from the full 03a table (`eval_final/03a`).
+* Torque brittleness (02): irrelevant while Stage 2 starts from the Stage-1 controller, but it limits how far a learned controller may deviate.
 * Armature sensitivity (0.05 / 0.1 / 0.2).
 * Per-episode terrain randomisation for Stage 2 (a heightfield is fixed per env instance; same seed in all envs).
