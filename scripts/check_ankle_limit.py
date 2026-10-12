@@ -17,7 +17,8 @@ TEST B - gravity ON, normal dynamics (needs --session: a trained policy walks; i
 
     python scripts/check_ankle_limit.py                              # test A only
     python scripts/check_ankle_limit.py --session <session dir>      # tests A + B  [--episodes 5 --max-steps 300]
-Exit code 0 if the STIFF env passes everything that was run, 1 otherwise.
+Exit code 0 if the PHYS env (the current one) passes everything that was run, 1 otherwise. Variants: stock (soft limit), stiff (hard limit),
+phys (hard limit + OSL motor model).
 """
 import argparse
 import os
@@ -33,8 +34,9 @@ import numpy as np  # noqa: E402
 CFGS = {
     "stock": os.path.join(HERE, "..", "configs", "experiments", "stage1_flat_osl.json"),
     "stiff": os.path.join(HERE, "..", "configs", "experiments", "stage1_flat_osl_stiff.json"),
+    "phys": os.path.join(HERE, "..", "configs", "experiments", "stage1_flat_osl_phys.json"),
 }
-ENV_IDS = {"stock": "myoAssistLegImitationExo-v0", "stiff": "myoAssistLegImitationExoStiff-v0"}
+ENV_IDS = {"stock": "myoAssistLegImitationExo-v0", "stiff": "myoAssistLegImitationExoStiff-v0", "phys": "myoAssistLegImitationExoOSLPhys-v0"}
 OUT = os.path.join(common.ORIG_CWD, "pilot_out", "ankle_check")
 J = "OSL_A_L1_osl_ankle_angle_r"
 WARN_NAMES = ["INERTIA", "CONTACTFULL", "CNSTRFULL", "VGEOMFULL", "BADQPOS", "BADQVEL", "BADQACC", "BADCTRL"]
@@ -77,7 +79,7 @@ def test_a(name, args):
     env.reset()
     m.opt.gravity[:] = 0.0
     body = next(i for i in range(m.nbody) if (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, i) or "").lower().endswith("osl_foot_assembly"))
-    frames, th = [], []
+    frames, th, om = [], [], []
     r = None
     try:
         r = mujoco.Renderer(m, height=480, width=640)
@@ -90,7 +92,9 @@ def test_a(name, args):
         a = np.zeros(env.action_space.shape)
         a[dev] = 1.0 if (t // 20) % 2 == 0 else -1.0
         env.step(a)
-        th.append(ankle(env)[0])
+        _a, _w = ankle(env)
+        th.append(_a)
+        om.append(abs(_w))
         if r is not None:
             cam.lookat[:] = d.xipos[body]
             r.update_scene(d, camera=cam)
@@ -104,7 +108,7 @@ def test_a(name, args):
     env.close()
     worst = max(abs(min(th)), abs(max(th)))
     ok = worst <= lim + 3.0
-    print(f"  A {name:5s}: ankle range {min(th):8.1f} .. {max(th):7.1f} deg (limit +-{lim:.0f})  -> {'PASS' if ok else 'FAIL'}")
+    print(f"  A {name:5s}: ankle range {min(th):8.1f} .. {max(th):7.1f} deg (limit +-{lim:.0f}), peak speed {max(om):6.1f} rad/s (OSL spec 6.13)  -> {'PASS' if ok else 'FAIL'}")
     return ok
 
 
@@ -181,14 +185,14 @@ def main():
 
     res = {}
     print("TEST A - gravity OFF, full-torque pulses (isolated joint-limit stress test)")
-    for name in ("stock", "stiff"):
+    for name in ("stock", "stiff", "phys"):
         res[("A", name)] = test_a(name, args)
     if args.session:
         print("\nTEST B - gravity ON, policy walking (normal dynamics)")
-        for name in ("stock", "stiff"):
+        for name in ("stock", "stiff", "phys"):
             res[("B", name)] = test_b(name, args)
     print("\nsummary:", ", ".join(f"{t}-{n}: {'PASS' if v else 'FAIL'}" for (t, n), v in res.items()))
-    return 0 if all(v for (t, n), v in res.items() if n == "stiff") else 1
+    return 0 if all(v for (t, n), v in res.items() if n == "phys") else 1
 
 
 if __name__ == "__main__":

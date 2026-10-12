@@ -75,6 +75,7 @@ def main():
         jn = {"prosthesis ankle (r)": "OSL_A_L1_osl_ankle_angle_r", "human ankle (l)": "ankle_angle_l", "knee r": "knee_angle_r", "knee l": "knee_angle_l"}
         jn = {k: v for k, v in jn.items() if _has(env, v)}
         ang = {k: [] for k in jn}
+        fl = []
         dev = common.device_actuator_ids(env)
         fell = False
         for t in range(args.max_steps):
@@ -87,6 +88,7 @@ def main():
             for k, v in jn.items():
                 ang[k].append(float(np.degrees(env.sim.data.joint(v).qpos[0])))
             cmd.append(float(np.mean(np.asarray(a)[dev])) if dev else 0.0)
+            fl.append(foot_force(env))
             cam.lookat[:] = [x, 0.0, 0.9]
             renderer.update_scene(mj_data, camera=cam)
             frames.append(renderer.render().copy())
@@ -96,6 +98,14 @@ def main():
             if truncated:
                 break
         print(f"seed {seed}: {len(frames)} steps ({len(frames) / fps:.1f} s), fell={fell}, distance={xs[-1] - xs[0]:.2f} m")
+        if fl and not any(np.isnan(fl)):
+            air = float(np.mean(np.asarray(fl) < 1.0))
+            ph = np.asarray(hs)
+            ph = ph[~np.isnan(ph)]
+            print(
+                f"  flight (no foot touching, <1 N): {air:.0%} of steps; pelvis height peak-to-peak {100 * (ph.max() - ph.min()) if len(ph) else float('nan'):.0f} cm"
+                f"  -> {'HOPPING/RUNNING-like' if air > 0.05 else 'walking-like (double/single support)'}"
+            )
         pa = ang.get("prosthesis ankle (r)")
         if pa:
             j = mujoco.mj_name2id(mj_model, mujoco.mjtObj.mjOBJ_JOINT, "OSL_A_L1_osl_ankle_angle_r")
@@ -111,6 +121,20 @@ def main():
     renderer.close()
     env.close()
     return 0
+
+
+def foot_force(env):
+    """Sum of the 4 foot touch sensors [N] (r/l foot + toes); NaN if the sensors are missing."""
+    try:
+        return float(sum(float(np_abs(env.sim.data.sensor(n).data)) for n in ("r_foot", "l_foot", "r_toes", "l_toes")))
+    except Exception:
+        return float("nan")
+
+
+def np_abs(x):
+    import numpy as np
+
+    return float(np.sum(np.abs(x)))
 
 
 def _has(env, name):

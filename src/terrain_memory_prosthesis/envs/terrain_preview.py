@@ -13,7 +13,7 @@ import os
 
 import numpy as np
 
-from terrain_memory_prosthesis.envs.stiff_limit import harden_device_limits
+from terrain_memory_prosthesis.envs.osl_physics import apply_osl_physics
 from terrain_memory_prosthesis.perception.terrain_preview import preview_distances, terrain_preview
 
 PREVIEW_ENV_ID = "myoAssistLegImitationExoPreview-v0"
@@ -38,7 +38,7 @@ def _make_env_class():
             self._pv_zero = os.environ.get("MYO_PREVIEW_ZERO", "0") == "1"
             super()._setup(**kwargs)
             m = self.sim.model
-            harden_device_limits(getattr(m, "ptr", m))  # same hard prosthesis limit as the Stage-1 env (see envs/stiff_limit.py)
+            apply_osl_physics(getattr(m, "ptr", m))  # same prosthesis physics as the Stage-1 env (hard limit + motor model, see envs/osl_physics.py)
 
         def get_obs_dict(self, sim):
             obs = super().get_obs_dict(sim)

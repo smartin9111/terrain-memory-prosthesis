@@ -22,6 +22,7 @@ ORIG_CWD = os.getcwd()
 SIBLING_MYOASSIST = Path(__file__).resolve().parents[4] / "myoassist"
 PREVIEW_ENV_IDS = ("myoAssistLegImitationExoPreview-v0",)
 STIFF_ENV_ID = "myoAssistLegImitationExoStiff-v0"
+OSL_PHYS_ENV_ID = "myoAssistLegImitationExoOSLPhys-v0"
 
 
 def resolve(p):
@@ -96,6 +97,10 @@ def ensure_env_registered(env_id: str):
         from terrain_memory_prosthesis.envs import terrain_preview
 
         terrain_preview.register()
+    elif env_id == OSL_PHYS_ENV_ID:
+        from terrain_memory_prosthesis.envs import osl_physics
+
+        osl_physics.register()
     elif env_id == STIFF_ENV_ID:
         from terrain_memory_prosthesis.envs import stiff_limit
 
