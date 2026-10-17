@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "reasons": [
+    "flat baseline fall rate 0.00",
+    "amplitudes in the target band: random 6 cm (fall 0.80)",
+    "pick the band for the training terrain distribution; fix evaluation terrain seeds (those used here are a start)",
+    "caveat: Stage-1 human not trained on rough terrain -> real headroom (after terrain training) is smaller"
+  ],
+  "checkpoint": "/work/ai3_test_train/myoassist/rl_train/results/train_session_20261012-174642/trained_models/model_29999104.zip"
+}

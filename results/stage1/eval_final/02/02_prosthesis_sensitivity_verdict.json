@@ -1,0 +1,10 @@
+{
+  "status": "WARN",
+  "reasons": [
+    "baseline fall rate 0.00, zero torque 1.00",
+    "prosthesis matters: zero torque raises fall rate by +1.00 (survived steps +567)",
+    "cliff: fall rate 1.00 @x0.5 -> 0.05 @x0.75; the gait is brittle around nominal torque",
+    "caveat: sensitivity of THIS stage-1 policy; a better stage-2 controller can still be robust or not"
+  ],
+  "checkpoint": "/work/ai3_test_train/myoassist/rl_train/results/train_session_20261012-174642/trained_models/model_29999104.zip"
+}

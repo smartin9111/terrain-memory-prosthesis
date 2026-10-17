@@ -18,6 +18,9 @@ venv/
 # Training outputs
 results/*
 !results/.gitkeep
+!results/stage1/
+results/stage1/**/*.mp4
+results/stage1/**/*.npz
 runs/
 logs/
 wandb/

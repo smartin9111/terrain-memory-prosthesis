@@ -32,7 +32,9 @@ How much exteroceptive terrain preview is required for robust prosthetic locomot
 ## Training Scheme
 
 1. **Stage 1** - the human (muscle policy) and a prosthesis actor learn to walk on flat ground with MyoAssist's own `run_train.py`
-   (`configs/experiments/stage1_flat_osl.json`; recipe of the previous SDU project: 30M steps, ~10 h on 64 CPUs).
+   (`configs/experiments/stage1_flat_final.json`: OSL prosthesis physics, no-flight and effort penalties, 160 m heightfield ground;
+   recipe of the previous SDU project: 30M steps, ~2.5 h with 128 envs on 96 cores). Results and caveats: `docs/stage1_findings.md`,
+   `results/stage1/`. Older configs (`stage1_flat_osl*.json`, `history/`) document the road to it and are not used any more.
 2. **Stage 2** - the human is copied into a new policy and **frozen** (`utils/freeze.py`); only the prosthesis controller is trained.
    P1/P2 and C1/C2 therefore differ *only* in the prosthesis controller. The critic sees the terrain preview in both P1 and P2.
 3. Terrain: flat -> mild random heightfield (2-5 cm), no stairs at first; fixed training distribution, fixed held-out evaluation terrains.
@@ -61,10 +63,13 @@ pytest                                        # unit tests (no MyoAssist needed 
 configs/experiments/
   p1c1.yaml ... p2c2.yaml        experiment definitions (documentation of the 2x2 design; not parsed by code yet)
   p1c1_myoassist.json            MyoAssist session config: P1xC1 on 6 cm random terrain, 200k-step smoke recipe
-  stage1_flat_osl.json           MyoAssist session config: Stage 1 (flat, proprioception-only prosthesis actor, 30M-step recipe)
+  stage1_flat_final.json         MyoAssist session config: Stage 1 FINAL (flat, proprioception-only prosthesis actor, 30M steps)
+  stage1_flat_osl*.json, history/  earlier Stage-1 variants (stock physics, hard limit, motor model; fine-tune experiments)
 src/terrain_memory_prosthesis/
   perception/terrain_preview.py  P2 exteroception: ray-cast terrain heights ahead of the pelvis (TODO: noise/dropout/delay)
   controllers/                   C1 (MLP) / C2 (GRU) prosthesis controllers (TODO)
+  envs/osl_physics.py            OSL prosthesis physics (hard ankle limit, motor torque-speed model) + no-flight penalty; Stage-1 env
+  envs/stiff_limit.py            hard ankle limit only (intermediate step, kept for the history)
   envs/terrain.py                MyoAssist terrain dicts (60 m field instead of the 20 m default)
   envs/terrain_preview.py        myoAssistLegImitationExoPreview-v0 = base env + preview block obs[40:45]
   evaluation/reporting.py        Wilson CI, summaries, verdicts / exit codes
@@ -75,7 +80,7 @@ src/terrain_memory_prosthesis/
 scripts/                         check_myoassist.py, check_prosthesis_env.py, inspect_osl_model.py, view_prosthesis.py
 scripts/pilots/                  pilot validation scripts 00-04 + README
 tests/                           unit tests
-results/                         experiment outputs (git-ignored)
+results/                         experiment outputs (git-ignored, except results/stage1/ = Stage-1 gate results, no checkpoints/videos)
 docs/                            project documentation
 ```
 

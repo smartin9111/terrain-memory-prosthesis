@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "reasons": [
+    "latest checkpoint 29999104: fall rate 0.00 [-0.00,0.28], survives 94% of 1000 steps, speed 1.34 m/s",
+    "the human walks with the prosthesis on flat ground -> Stage 1 is usable, continue to 01/02"
+  ],
+  "args": {
+    "session": "/work/ai3_test_train/myoassist/rl_train/results/train_session_20261012-174642",
+    "control": null,
+    "episodes": 10,
+    "max_steps": 1000,
+    "max_ckpts": 8,
+    "workers": 16,
+    "target_velocity": null,
+    "pass_fall_rate": 0.2,
+    "pass_steps_frac": 0.8,
+    "stall_after": 5000000.0,
+    "stall_gain": 0.1,
+    "root": "/work/ai3_test_train/myoassist",
+    "out": "/work/ai3_test_train/eval_final/00"
+  }
+}

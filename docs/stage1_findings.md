@@ -62,3 +62,12 @@ final policy (target: blind fall rate 20-80 %), optionally slopes (`terrain: "sl
 * Torque brittleness (02): irrelevant while Stage 2 starts from the Stage-1 controller, but it limits how far a learned controller may deviate.
 * Armature sensitivity (0.05 / 0.1 / 0.2).
 * Per-episode terrain randomisation for Stage 2 (a heightfield is fixed per env instance; same seed in all envs).
+
+## Where the Stage-1 artefacts are
+
+* Code and configs: this repository (tag `stage1-final`). The final policy was trained from `configs/experiments/stage1_flat_final.json`
+  (UCloud: `ENVS=128`, `n_steps=128`, 30M steps; the config itself says 64 x 256, same rollout of 16384).
+* Final policy: session `train_session_20261012-174642`, checkpoint `model_29999104.zip` (UCloud folder `ai3_test_train`).
+  Checkpoints are **not** in git (`*.zip` is ignored); keep a copy as a GitHub Release asset of tag `stage1-final` and one locally.
+* Gate results (CSV/JSON/PNG, no videos): `results/stage1/` (from `stage1_results.tgz`, see the README there).
+
