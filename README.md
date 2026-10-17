@@ -77,7 +77,9 @@ src/terrain_memory_prosthesis/
 scripts/
   train.py                       Stage 1 (MyoAssist run_train with our env ids)
   train_stage2.py                Stage 2 launcher: --cond P1|P2 --controller mlp --perception NAME --preview-distances ...
+  compare_p1_p2.py               ONE COMMAND: train P1+P2, evaluate, figures + tables, side-by-side videos (docs/stage2.md)
   eval_stage2.py                 held-out terrain evaluation of Stage-2 runs
+  analyze_stage2.py              figures (fall rate vs amplitude, metrics, training curves) and tables from an evaluation
   ucloud/                        UCloud launchers (stage1.sh, stage2.sh)
   pilots/                        pilot validation scripts 00-06 + README
   check_*.py, inspect_*.py, view_prosthesis.py   sanity / inspection tools

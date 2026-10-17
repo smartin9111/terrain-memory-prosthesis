@@ -40,6 +40,8 @@ def main():
     ap.add_argument("--runs", nargs="+", default=[], help="Stage-2 session folders (globs allowed)")
     ap.add_argument("--stage1-session", default=None, help="Stage-1 session: evaluated as the no-Stage-2 reference")
     ap.add_argument("--ckpt-steps", type=int, default=None)
+    ap.add_argument("--ckpts", type=int, default=1, help="evaluate this many evenly spaced checkpoints per Stage-2 run (learning curve of the falls; "
+                                                           "costs this many times more time)")
     ap.add_argument("--episodes", type=int, default=10)
     ap.add_argument("--max-steps", type=int, default=1000)
     ap.add_argument("--terrain-seeds", default="1,2,3")
@@ -50,35 +52,49 @@ def main():
     root = common.init(a.root)
     out = common.out_dir(a.out, "eval_stage2")
 
-    entries = []  # (label, session, condition, env vars of the run)
+    entries = []  # (label, session, condition, env vars of the run, controller, training seed)
     for pat in a.runs:
         for p in sorted(glob.glob(common.resolve(pat))):
             with open(os.path.join(p, "stage2_info.json")) as f:
                 info = json.load(f)
             # the run's own perception settings (MYO_PERCEPTION, preview distances): evaluation must see what training saw
-            entries.append((os.path.basename(p), p, info["args"]["cond"], info.get("perception_env")))
+            entries.append((os.path.basename(p), p, info["args"]["cond"], info.get("perception_env"),
+                            info["args"].get("controller", "mlp"), info["args"].get("seed", 0)))
     if a.stage1_session:
-        entries.append(("stage1_reference", common.resolve(a.stage1_session), "stage1", None))
+        entries.append(("stage1_reference", common.resolve(a.stage1_session), "stage1", None, "", 0))
     if not entries:
         raise SystemExit("nothing to evaluate (--runs / --stage1-session)")
 
     seeds = [int(x) for x in a.terrain_seeds.split(",")]
     tasks = []
-    for label, sess, cond, penv in entries:
+    for label, sess, cond, penv, ctrl, tseed in entries:
         cks = common.list_checkpoints(sess)
         if not cks:
             print(f"skip {label}: no checkpoints")
             continue
-        steps, ck = min(cks, key=lambda c: abs(c[0] - a.ckpt_steps)) if a.ckpt_steps else cks[-1]
-        for kind, amp, ts, spec in terrains(seeds):
-            tasks.append(dict(config=os.path.join(sess, "session_config.json"), checkpoint=ck, episodes=a.episodes, max_steps=a.max_steps,
-                              seed0=0, terrain=spec if spec is not None else None, root=root, env=penv, label=f"{label}_{kind}{amp}_{ts}",
-                              extra=dict(run=label, cond=cond, ckpt_steps=steps, terrain_kind=kind, amplitude=amp, terrain_seed=ts)))
+        if a.ckpts > 1 and cond != "stage1":  # evenly spaced checkpoints (always incl. the last) -> learning curve of the falls
+            idx = sorted({round(i * (len(cks) - 1) / (a.ckpts - 1)) for i in range(a.ckpts)})
+            chosen = [cks[i] for i in idx]
+        else:
+            chosen = [min(cks, key=lambda c: abs(c[0] - a.ckpt_steps)) if a.ckpt_steps else cks[-1]]
+        for steps, ck in chosen:
+              for kind, amp, ts, spec in terrains(seeds):
+                tasks.append(dict(config=os.path.join(sess, "session_config.json"), checkpoint=ck, episodes=a.episodes, max_steps=a.max_steps,
+                                  seed0=0, terrain=spec if spec is not None else None, root=root, env=penv, label=f"{label}_{steps}_{kind}{amp}_{ts}",
+                                  extra=dict(run=label, cond=cond, controller=ctrl, seed=tseed, ckpt_steps=steps, terrain_kind=kind, amplitude=amp,
+                                             terrain_seed=ts)))
+    if not tasks:
+        raise SystemExit("nothing to evaluate: no checkpoints found (a session folder needs session_config.json and trained_models/model_*.zip). "
+                         "Check the --runs / --stage1-session path.")
     print(f"{len(tasks)} evaluation tasks, {a.workers} workers", flush=True)
     rows = common.strip_episodes(common.run_parallel(tasks, workers=a.workers, root=root))
     for r in rows:
         r["steps_frac"] = r["mean_steps"] / a.max_steps
     common.save_rows(out, "stage2_eval", rows)
+    last = {}
+    for r in rows:
+        last[r["run"]] = max(last.get(r["run"], 0), r["ckpt_steps"])
+    rows = [r for r in rows if r["ckpt_steps"] == last[r["run"]]]  # the printed table: last checkpoint of every run
 
     import statistics as st
 

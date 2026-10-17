@@ -25,6 +25,32 @@ every reset. Now only world-body geoms are intersected (`mj_rayHfield` / `mju_ra
 `tests/test_terrain_preview.py::test_many_stacked_walker_geoms_do_not_hide_the_ground`. Any *earlier* P1-vs-P2 pilot
 result (03b) was obtained with the broken preview and is not valid.
 
+## One command: P1xC1 vs P2xC1 (train, evaluate, figures, videos)
+
+```bash
+python scripts/compare_p1_p2.py --stage1-session ../stage1_session --smoke            # plumbing check, ~3-5 min (numbers are meaningless)
+python scripts/compare_p1_p2.py --stage1-session ../stage1_session --timesteps 2000000 --out compare_out
+```
+
+`--stage1-session` = a folder with the Stage-1 `session_config.json` and `trained_models/model_*.zip` (GitHub Release `stage1-final`).
+It trains P1 and P2 (same seed and recipe), evaluates both and the Stage-1 policy on the held-out terrains, and writes into `--out`:
+
+| file | content |
+|---|---|
+| `report/fig_fall_rate.png` | fall rate vs terrain amplitude, 95 % Wilson intervals, Stage-1 reference, per-seed dots (if several seeds); sinusoidal terrain on the right |
+| `report/fig_metrics.png` | survived fraction, distance, speed error, mean prosthesis command vs amplitude |
+| `report/fig_training.png` | training reward, training-episode length, policy std, critic explained variance |
+| `report/fig_checkpoints.png` | fall rate vs training steps (only with `--ckpts 5`: evaluates 5 checkpoints per run, 5x the evaluation time) |
+| `report/summary.md/.csv` | per cell x terrain: n, falls, fall rate [CI], survival, distance, speed error, command |
+| `report/differences.md/.csv` | P2 - P1 fall-rate difference with a Newcombe 95 % interval (an interval containing 0 = not separated) |
+| `videos/compare_*.mp4` | P1 (left) and P2 (right) on the same terrain and seeds (needs ffmpeg; else the separate videos are in `videos/P1_*`, `videos/P2_*`) |
+| `logs/`, `compare_info.json` | full logs, arguments, run folders |
+
+Options: `--seed`, `--episodes` (per terrain instance, default 10), `--ckpts`, `--video-amp`, `--skip-train --p1-run <dir> --p2-run <dir>` (re-evaluate
+existing runs), `--no-video`. With more than one training seed run the script once per seed, then analyse them together:
+`python scripts/analyze_stage2.py --eval <dir> --runs "<runs>*" --out <report>` (after `eval_stage2.py` over all runs).
+Honest reading: with few episodes the intervals are wide; per-seed dots show the spread between training runs.
+
 ## Run (UCloud)
 
 ```bash

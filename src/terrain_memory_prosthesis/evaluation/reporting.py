@@ -15,7 +15,7 @@ def wilson_ci(k: int, n: int, z: float = 1.96):
     d = 1 + z * z / n
     c = p + z * z / (2 * n)
     h = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
-    return ((c - h) / d, (c + h) / d)
+    return (min(p, max(0.0, (c - h) / d)), max(p, min(1.0, (c + h) / d)))  # clamp: rounding must not leave [0, 1] or exclude p
 
 
 def summarize(episodes: list[dict]) -> dict:
@@ -55,7 +55,7 @@ def save_rows(out: str, name: str, rows: list[dict]):
 
 def print_table(rows: list[dict], cols: list[str], fmt: dict | None = None):
     fmt = fmt or {}
-    widths = {c: max(len(c), *(len(_f(r.get(c), fmt.get(c))) for r in rows)) for c in cols}
+    widths = {c: max([len(c)] + [len(_f(r.get(c), fmt.get(c))) for r in rows]) for c in cols}
     print("  ".join(c.ljust(widths[c]) for c in cols))
     for r in rows:
         print("  ".join(_f(r.get(c), fmt.get(c)).ljust(widths[c]) for c in cols))

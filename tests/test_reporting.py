@@ -30,3 +30,18 @@ def test_verdict_exit_codes(tmp_path):
     assert verdict(str(tmp_path), "x", "WARN", ["hmm"]) == 1
     assert verdict(str(tmp_path), "x", "FAIL", ["bad"]) == 2
     assert json.loads((tmp_path / "x_verdict.json").read_text())["status"] == "FAIL"
+
+
+def test_print_table_empty_rows(capsys):
+    from terrain_memory_prosthesis.evaluation.reporting import print_table
+
+    print_table([], ["run", "fall_rate"], {"fall_rate": ".3f"})  # must not raise
+
+
+def test_wilson_ci_inside_unit_interval_and_contains_p():
+    from terrain_memory_prosthesis.evaluation.reporting import wilson_ci
+
+    for n in (1, 5, 20, 100):
+        for k in range(n + 1):
+            lo, hi = wilson_ci(k, n)
+            assert 0.0 <= lo <= k / n <= hi <= 1.0
