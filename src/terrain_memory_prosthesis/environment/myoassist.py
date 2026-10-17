@@ -107,8 +107,25 @@ def ensure_env_registered(env_id: str):
         stiff_limit.register()
 
 
+def apply_run_env(session_or_config: str) -> dict:
+    """If the session is a Stage-2 run, set the perception variables it was trained with (MYO_PERCEPTION, ...) so that every tool
+    (video, pilots, evaluation) builds the env the policy expects. Returns what was set ({} for Stage-1 sessions / templates)."""
+    p = resolve(session_or_config)
+    d = p if os.path.isdir(p) else os.path.dirname(p)
+    info = os.path.join(d, "stage2_info.json")
+    if not os.path.isfile(info):
+        return {}
+    with open(info) as f:
+        env = (json.load(f).get("perception_env")) or {}
+    for k in [k for k in os.environ if k == "MYO_PERCEPTION" or k.startswith("MYO_PREVIEW_")]:
+        del os.environ[k]
+    os.environ.update({k: str(v) for k, v in env.items()})
+    return env
+
+
 def load_config(path: str):
     """Typed MyoAssist session config from a session dir, a session_config.json or a config template."""
+    apply_run_env(path)
     p = session_config_path(path)
     with open(p) as f:
         env_id = json.load(f)["env_params"]["env_id"]

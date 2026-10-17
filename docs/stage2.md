@@ -35,6 +35,14 @@ STAGE1=$S1 COND=P1 SEED=0 TOTAL=20000000 bash scripts/ucloud/stage2.sh full     
 STAGE1=$S1 CONDS="P1 P2" SEEDS="0 1 2" bash scripts/ucloud/stage2.sh batch   # queue: seed 0 P1, P2, seed 1 P1, P2 ...
 ```
 
+Video of a finished run (works for P1 and P2 runs: the perception settings are read from the run's `stage2_info.json`):
+
+```bash
+cd /work/ai3_test_train/myoassist
+python ../terrain-memory-prosthesis/scripts/pilots/05_render_video.py --session rl_train/results/stage2_P1_mlp_s0_<stamp> \
+   --seeds 0,1,2 --terrain random --amplitude 0.04 --max-steps 600 --out ~/videos_p1
+```
+
 Evaluation on fixed held-out terrains (flat; random 2/4/6/8 cm x 3 terrain seeds; sinusoidal 4 cm), Stage-1 policy as
 reference:
 

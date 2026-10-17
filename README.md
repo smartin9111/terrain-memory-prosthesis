@@ -40,6 +40,9 @@ How much exteroceptive terrain preview is required for robust prosthetic locomot
    The critic sees the clean terrain preview in both P1 and P2.
 3. Terrain: flat -> mild random heightfield (2-5 cm), no stairs at first; fixed training distribution, fixed held-out evaluation terrains.
 
+Stage 1 is done once and shared by all four cells (P1C1 ... P2C2); every Stage 2 run starts from its checkpoint
+(`docs/architecture.md`, section "Stage 1 and Stage 2").
+
 Before any long training, run the pilots in `scripts/pilots/` (see its README): do the human walk with the prosthesis, is the
 freeze correct, does the prosthesis matter, which terrain amplitude leaves headroom, does preview help at all, does the
 recurrent pipeline learn memory.

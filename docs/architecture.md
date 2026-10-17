@@ -24,6 +24,19 @@ The 2x2 design has two axes. Each axis lives in its own package and is chosen **
 `tests/test_import_boundaries.py` enforces the table: a perception module that imports a controller (or the reverse) fails the test, so
 the two axes cannot grow into each other by accident.
 
+## Stage 1 and Stage 2
+
+| | Stage 1 | Stage 2 |
+|---|---|---|
+| What learns | human (muscles) + prosthesis actor, together | prosthesis controller only (human frozen) |
+| Terrain | flat (160 m heightfield, 25 cm cells) | new random field every episode (2-6 cm) |
+| Entry point | `scripts/train.py` (registers our env ids, then runs MyoAssist's own `run_train.py`); UCloud: `scripts/ucloud/stage1.sh` | `scripts/train_stage2.py` -> `training/stage2.py`; UCloud: `scripts/ucloud/stage2.sh` |
+| Code it uses | `environment/osl_physics.py` (OSL ankle limit + motor model, no-flight penalty), config `configs/experiments/stage1_flat_final.json` | `perception/`, `controllers/`, `environment/preview_env.py` |
+| Result | checkpoint `train_session_*/trained_models/model_*.zip` (GitHub Release `stage1-final`), gate results in `results/stage1/`, notes in `docs/stage1_findings.md` | `stage2_<cond>_<controller>_s<seed>_<stamp>/` with `stage2_info.json` |
+
+Stage 1 is done once and shared by all four cells of the 2x2; its checkpoint is the start of every Stage 2 run. Stage 1 was not rewritten
+into `training/`: it runs MyoAssist's trainer unchanged, only the environment and the config are ours.
+
 ## The one interface: the observation vector
 
 ```

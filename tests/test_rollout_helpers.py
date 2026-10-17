@@ -31,3 +31,21 @@ def test_seeded_rng_makes_default_rng_reproducible():
         b = np.random.default_rng().integers(0, 1000, 5)
     assert (a == b).all()
     assert np.random.default_rng.__module__ != "builtins"  # restored afterwards
+
+
+def test_apply_run_env(tmp_path, monkeypatch):
+    import json
+
+    from terrain_memory_prosthesis.environment.myoassist import apply_run_env
+
+    (tmp_path / "stage2_info.json").write_text(json.dumps({"perception_env": {"MYO_PERCEPTION": "none"}}))
+    monkeypatch.setenv("MYO_PERCEPTION", "clean_preview")
+    monkeypatch.setenv("MYO_PREVIEW_DISTANCES", "0.2")
+    assert apply_run_env(str(tmp_path)) == {"MYO_PERCEPTION": "none"}
+    import os
+
+    assert os.environ["MYO_PERCEPTION"] == "none" and "MYO_PREVIEW_DISTANCES" not in os.environ
+    assert apply_run_env(str(tmp_path / "session_config.json")) == {"MYO_PERCEPTION": "none"}  # config path inside the session
+    other = tmp_path / "stage1"
+    other.mkdir()
+    assert apply_run_env(str(other)) == {}
