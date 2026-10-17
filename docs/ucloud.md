@@ -71,3 +71,7 @@ This is inside the persistent folder, so download/inspect them after the job end
 * Resuming an interrupted Stage 1 is untested. If the time limit hits early, keep the last checkpoint and start a new job
   (set a longer *Hours* rather than relying on resume).
 * Commit `uv.lock` once the environment resolves, for reproducible setups.
+
+
+## Stage 2
+See `docs/stage2.md` (commands: `scripts/ucloud/stage2.sh measure|full|batch`, `scripts/eval_stage2.py`).

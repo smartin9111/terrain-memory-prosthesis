@@ -3,9 +3,9 @@
 
 Question : With the Stage-1 human frozen, does a prosthesis actor that sees the terrain ahead (P2) end up measurably
            better on rough terrain than one that sees proprioception only (P1) - after the same short PPO budget?
-Setup    : * env  myoAssistLegImitationExoPreview-v0 (src/terrain_memory_prosthesis/envs/terrain_preview.py): obs[40:45] = ground height at
+Setup    : * env  myoAssistLegImitationExoPreview-v0 (src/terrain_memory_prosthesis/environment/preview_env.py): obs[40:45] = ground height at
              0.2,0.4,0.6,0.8,1.0 m ahead relative to the pelvis, in units of 10 cm.
-           * Stage 1 human (--stage1 checkpoint) is copied into both conditions and frozen (utils/freeze.py);
+           * Stage 1 human (--stage1 checkpoint) is copied into both conditions and frozen (controllers/freeze.py);
              the human actor never sees the preview. Only the prosthesis actor is trained.
            * P1: prosthesis actor input = proprioception.  P2: the same + obs[40:45].  The critic sees obs[0:45] in BOTH
              (privileged critic, identical across conditions) so the value baseline cannot explain a difference.
@@ -33,7 +33,7 @@ import subprocess
 import sys
 import time
 
-# --- registration must also happen when SB3 forkserver/spawn workers import this file as __main__ (see envs/terrain_preview.py)
+# --- registration must also happen when SB3 forkserver/spawn workers import this file as __main__ (see environment/preview_env.py)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
@@ -41,7 +41,7 @@ _pre = argparse.ArgumentParser(add_help=False)
 _pre.add_argument("--root", default=None)
 _known, _ = _pre.parse_known_args()
 common.init(_known.root)
-from terrain_memory_prosthesis.envs import terrain_preview as terrain_preview_env  # noqa: E402,F401  (registers the env id at import)
+from terrain_memory_prosthesis.environment import preview_env as terrain_preview_env  # noqa: E402,F401  (registers the env id at import)
 
 N_MUSCLE = 18
 
@@ -87,7 +87,7 @@ def run_worker(job: dict) -> int:
     common.init(job.get("root"))
     import numpy as np
     import torch
-    from terrain_memory_prosthesis.utils.freeze import load_and_freeze_human
+    from terrain_memory_prosthesis.controllers.freeze import load_and_freeze_human
 
     run_dir = job["run_dir"]
     os.makedirs(run_dir, exist_ok=True)

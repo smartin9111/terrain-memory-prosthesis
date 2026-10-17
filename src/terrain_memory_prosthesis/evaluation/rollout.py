@@ -9,7 +9,7 @@ import random
 import time
 
 from terrain_memory_prosthesis.evaluation.reporting import summarize
-from terrain_memory_prosthesis.utils.myoassist import device_actuator_ids, init, load_config, load_model, make_eval_env
+from terrain_memory_prosthesis.environment.myoassist import device_actuator_ids, init, load_config, load_model, make_eval_env
 
 
 @contextlib.contextmanager
@@ -118,9 +118,14 @@ def eval_task(task: dict) -> dict:
     """Worker entry point (picklable, top-level). One env build, `episodes` deterministic episodes.
 
     task keys: config, checkpoint, episodes, max_steps, seed0, terrain (optional; 'keep' = leave config's),
-               perturb ({'kind','value'}), target_velocity, label, extra (copied to the result)
+               perturb ({'kind','value'}), target_velocity, label, extra (copied to the result),
+               env (environment variables to set before the env is built, e.g. {"MYO_PERCEPTION": "none"})
     """
     init(task.get("root"))
+    if task.get("env") is not None:  # the run's perception settings (must match training); replaces any left over from a previous task
+        for k in [k for k in os.environ if k == "MYO_PERCEPTION" or k.startswith("MYO_PREVIEW_")]:
+            del os.environ[k]
+        os.environ.update({k: str(v) for k, v in task["env"].items()})
     cfg = load_config(task["config"])
     if task.get("terrain", "keep") != "keep":
         cfg.env_params.terrain = task["terrain"]

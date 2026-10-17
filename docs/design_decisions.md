@@ -1,7 +1,7 @@
 # Design decisions (agreed + measured)
 
 * **Frozen human, trained prosthesis only.** Joint training would let the human adapt differently in each condition and confound
-  P1/P2 and C1/C2. Mechanism: `utils/freeze.py` (human weights `requires_grad=False`, gradient mask on the muscle part of the single
+  P1/P2 and C1/C2. Mechanism: `controllers/freeze.py` (human weights `requires_grad=False`, gradient mask on the muscle part of the single
   shared `log_std`). Verified bitwise by `scripts/pilots/01_check_freeze.py` and `tests/test_freeze_logic.py`.
 * **Same critic input everywhere.** The critic sees the preview in P1 and P2; otherwise a better value baseline could explain a P2 gain.
 * **C1 vs C2 differ only in memory.** Same PPO settings. Optional third baseline: frame-stacked MLP (memory without recurrence).

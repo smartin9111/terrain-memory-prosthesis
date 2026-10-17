@@ -27,7 +27,7 @@ Usage: config env_params.env_id = "myoAssistLegImitationExoOSLPhys-v0".
 from __future__ import annotations
 
 OSL_PHYS_ENV_ID = "myoAssistLegImitationExoOSLPhys-v0"
-_ENTRY_POINT = "terrain_memory_prosthesis.envs.osl_physics:MyoAssistLegImitationExoOSLPhys"
+_ENTRY_POINT = "terrain_memory_prosthesis.environment.osl_physics:MyoAssistLegImitationExoOSLPhys"
 PEAK_TORQUE = 145.25  # Nm (OSL spec page, instantaneous)
 PEAK_SPEED = 6.13  # rad/s (OSL spec page)
 FLIGHT_FORCE_N = 1.0  # both feet below this total touch force = flight phase (same threshold as scripts/pilots/05_render_video.py)
@@ -55,7 +55,7 @@ def apply_osl_motor_model(mj_model, peak_torque: float = PEAK_TORQUE, peak_speed
 
 
 def apply_osl_physics(mj_model) -> dict:
-    from terrain_memory_prosthesis.envs.stiff_limit import harden_device_limits
+    from terrain_memory_prosthesis.environment.stiff_limit import harden_device_limits
 
     limits = harden_device_limits(mj_model)
     motor = apply_osl_motor_model(mj_model)
@@ -63,7 +63,7 @@ def apply_osl_physics(mj_model) -> dict:
 
 
 def register():
-    from terrain_memory_prosthesis.envs._registry import register_exo_env
+    from terrain_memory_prosthesis.environment._registry import register_exo_env
 
     register_exo_env(OSL_PHYS_ENV_ID, _ENTRY_POINT)
 

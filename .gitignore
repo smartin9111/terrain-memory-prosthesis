@@ -37,3 +37,8 @@ wandb/
 pilot_out/
 __MACOSX/
 *.zip
+
+# Pilot / evaluation outputs, archives
+pilot_out/
+__MACOSX/
+*.zip

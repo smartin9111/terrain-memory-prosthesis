@@ -35,7 +35,7 @@ python scripts/pilots/04_check_gru_memory.py --agent my_gru_agent:train_and_eval
 ```
 
 Long runs (03b, UCloud): `nohup ... &` or tmux. 03b is **resumable**: re-run with the same `--out` and finished runs (`runs/*/result.json`) are skipped.
-Cores: `--workers` (00/02/03a) and `--parallel x --num-envs` (03b) should not exceed the machine's cores. Threads are capped to 1, MuJoCo is headless (`MUJOCO_GL=egl`).
+Cores: `--workers` (00/02/03a) and `--parallel x --num-envs` (03b) should not exceed the machine's cores. Threads are capped to 1, MuJoCo is headless on Linux (`MUJOCO_GL=egl`, set automatically; not on macOS).
 
 ## Decision tree
 
@@ -58,7 +58,7 @@ Cores: `--workers` (00/02/03a) and `--parallel x --num-envs` (03b) should not ex
 * 03a measures a human trained on *flat* ground; the final human also trains on terrain, so the real headroom is smaller.
   Re-run it with a terrain-trained Stage 1.
 * Upstream terrain default: 20 m wide heightfield with a 3 m flat start - the walker leaves it after ~10 m (~250 steps).
-  We use 60 m (`envs/terrain.py`); set `extent` / `resolution` in the Stage 1/2 training configs too.
+  We use 60 m (`environment/terrain.py`); set `extent` / `resolution` in the Stage 1/2 training configs too.
 * A MyoAssist heightfield is fixed per model: one training run = one terrain (seed). For the final experiment (new terrain
   per episode) the heightfield data has to be regenerated at reset - not written yet.
 * 04 uses sb3-contrib's **LSTM** (no GRU there); test your own GRU with the `--agent` hook on the same task.

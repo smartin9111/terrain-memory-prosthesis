@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "pil
 import common  # noqa: E402  (also sets thread env vars, chdir to the MyoAssist root, sys.path)
 
 root = common.init(os.environ.get("MYOASSIST_DIR"), threads=int(os.environ.get("MYOASSIST_NUM_THREADS", "8")))
-from terrain_memory_prosthesis.envs import osl_physics, stiff_limit, terrain_preview  # noqa: E402,F401  (register the ids)
+from terrain_memory_prosthesis.environment import osl_physics, preview_env, stiff_limit  # noqa: E402,F401  (register the ids)
 
 if __name__ == "__main__":
     # a relative --config_file_path given by the user is resolved against the directory the launcher was started from

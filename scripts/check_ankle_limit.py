@@ -113,7 +113,7 @@ def test_a(name, args):
 
 
 def test_b(name, args):
-    from terrain_memory_prosthesis.utils.myoassist import ensure_env_registered
+    from terrain_memory_prosthesis.environment.myoassist import ensure_env_registered
 
     cfg = common.load_config(args.session)
     cfg.env_params.env_id = ENV_IDS[name]

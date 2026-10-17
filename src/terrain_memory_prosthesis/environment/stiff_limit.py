@@ -6,12 +6,12 @@ to +110 / -300 deg (and a trained policy exploits it: the foot swings almost all
 solref timeconst to ~2 physics steps (0.002 s) makes the limit hold (overshoot ~1 deg at full torque).
 
 Usage: config env_params.env_id = "myoAssistLegImitationExoStiff-v0" (same obs/actions/rewards as the stock exo env).
-The preview env (envs/terrain_preview.py) applies the same fix, so Stage 1 and Stage 2 share one physics.
+The preview env (environment/preview_env.py) applies the same fix, so Stage 1 and Stage 2 share one physics.
 """
 from __future__ import annotations
 
 STIFF_ENV_ID = "myoAssistLegImitationExoStiff-v0"
-_ENTRY_POINT = "terrain_memory_prosthesis.envs.stiff_limit:MyoAssistLegImitationExoStiff"
+_ENTRY_POINT = "terrain_memory_prosthesis.environment.stiff_limit:MyoAssistLegImitationExoStiff"
 LIMIT_TIMECONST = 0.002  # s; must be >= 2 * physics timestep (1/1200 s -> 0.0017)
 DEVICE_JOINT_PREFIX = "OSL"
 
@@ -30,7 +30,7 @@ def harden_device_limits(mj_model, timeconst: float = LIMIT_TIMECONST, prefix: s
 
 
 def register():
-    from terrain_memory_prosthesis.envs._registry import register_exo_env
+    from terrain_memory_prosthesis.environment._registry import register_exo_env
 
     register_exo_env(STIFF_ENV_ID, _ENTRY_POINT)
 
