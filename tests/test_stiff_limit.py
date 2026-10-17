@@ -14,7 +14,7 @@ XML = """
 
 
 def test_only_limited_prosthesis_joints_are_hardened():
-    from terrain_memory_prosthesis.envs.stiff_limit import LIMIT_TIMECONST, harden_device_limits
+    from terrain_memory_prosthesis.environment.stiff_limit import LIMIT_TIMECONST, harden_device_limits
 
     m = mujoco.MjModel.from_xml_string(XML)
     before = m.jnt_solref.copy()

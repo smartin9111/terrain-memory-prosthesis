@@ -1,0 +1,11 @@
+# Who must review changes. Replace @COLLEAGUE with András' GitHub user name, then turn on
+# "Require review from Code Owners" for main (Settings -> Branches). Rules: docs/architecture.md
+*                                  @smartin9111
+/src/terrain_memory_prosthesis/perception/   @COLLEAGUE
+/src/terrain_memory_prosthesis/controllers/  @smartin9111
+/src/terrain_memory_prosthesis/common/       @smartin9111 @COLLEAGUE
+/src/terrain_memory_prosthesis/environment/  @smartin9111 @COLLEAGUE
+/src/terrain_memory_prosthesis/training/     @smartin9111 @COLLEAGUE
+/src/terrain_memory_prosthesis/evaluation/   @smartin9111 @COLLEAGUE
+/tests/test_import_boundaries.py             @smartin9111 @COLLEAGUE
+/docs/                                       @smartin9111 @COLLEAGUE

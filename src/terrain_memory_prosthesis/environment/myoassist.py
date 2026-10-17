@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 ORIG_CWD = os.getcwd()
-# <workspace>/terrain-memory-prosthesis/src/terrain_memory_prosthesis/utils/myoassist.py -> <workspace>/myoassist
+# <workspace>/terrain-memory-prosthesis/src/terrain_memory_prosthesis/environment/myoassist.py -> <workspace>/myoassist
 SIBLING_MYOASSIST = Path(__file__).resolve().parents[4] / "myoassist"
 PREVIEW_ENV_IDS = ("myoAssistLegImitationExoPreview-v0",)
 STIFF_ENV_ID = "myoAssistLegImitationExoStiff-v0"
@@ -94,15 +94,15 @@ def pick_checkpoints(session_dir: str, max_ckpts: int) -> list[tuple[int, str]]:
 
 def ensure_env_registered(env_id: str):
     if env_id in PREVIEW_ENV_IDS:
-        from terrain_memory_prosthesis.envs import terrain_preview
+        from terrain_memory_prosthesis.environment import preview_env
 
-        terrain_preview.register()
+        preview_env.register()
     elif env_id == OSL_PHYS_ENV_ID:
-        from terrain_memory_prosthesis.envs import osl_physics
+        from terrain_memory_prosthesis.environment import osl_physics
 
         osl_physics.register()
     elif env_id == STIFF_ENV_ID:
-        from terrain_memory_prosthesis.envs import stiff_limit
+        from terrain_memory_prosthesis.environment import stiff_limit
 
         stiff_limit.register()
 
@@ -158,7 +158,7 @@ def read_config_dict(path: str) -> dict:
 def config_from_dict(d: dict, tmp_dir: str, name: str = "cfg"):
     """Typed config from an edited config dict (written to tmp_dir/name.json, as MyoAssist loads from files)."""
     os.makedirs(tmp_dir, exist_ok=True)
-    p = os.path.join(tmp_dir, f"{name}.json")
+    p = os.path.abspath(os.path.join(tmp_dir, f"{name}.json"))  # tmp_dir is relative to the CURRENT directory (the MyoAssist root)
     with open(p, "w") as f:
         json.dump(d, f)
     return load_config(p)

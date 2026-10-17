@@ -15,7 +15,7 @@ XML = """
 def test_motor_model_matches_spec_and_is_stable():
     import numpy as np
 
-    from terrain_memory_prosthesis.envs.osl_physics import PEAK_SPEED, PEAK_TORQUE, apply_osl_physics
+    from terrain_memory_prosthesis.environment.osl_physics import PEAK_SPEED, PEAK_TORQUE, apply_osl_physics
 
     m = mujoco.MjModel.from_xml_string(XML)
     d = mujoco.MjData(m)
@@ -35,7 +35,7 @@ def test_motor_model_matches_spec_and_is_stable():
 
 def test_no_flight_penalty_only_without_foot_contact():
     """The walking term: -dt in `foot_force_penalty` exactly when both feet carry < FLIGHT_FORCE_N (no env needed)."""
-    from terrain_memory_prosthesis.envs.osl_physics import FLIGHT_FORCE_N, NoFlightPenaltyMixin
+    from terrain_memory_prosthesis.environment.osl_physics import FLIGHT_FORCE_N, NoFlightPenaltyMixin
 
     class Base:
         dt = 1.0 / 30.0

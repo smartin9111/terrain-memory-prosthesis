@@ -3,7 +3,7 @@ import pytest
 
 mujoco = pytest.importorskip("mujoco")
 
-from terrain_memory_prosthesis.perception.terrain_preview import ground_height, terrain_preview
+from terrain_memory_prosthesis.perception.clean_preview import ground_height, terrain_preview
 
 XML = """
 <mujoco>
@@ -43,3 +43,25 @@ def test_preview_beyond_field_is_zero(sim):
     m, d = sim
     v = terrain_preview(m, d, distances=(100.0,), scale=0.1)
     assert v[0] == 0.0
+
+
+def test_many_stacked_walker_geoms_do_not_hide_the_ground():
+    """Regression: at reset >12 walker geoms sit above the pelvis x,y; the old hop-based ray returned NaN -> preview 0."""
+    geoms = "".join(f'<geom type="sphere" size="0.05" pos="0 0 {0.1 * i}"/>' for i in range(30))
+    xml = XML.replace("</worldbody>", f'<body name="stack" pos="0 0 0.5"><freejoint/>{geoms}</body></worldbody>')
+    m = mujoco.MjModel.from_xml_string(xml)
+    d = mujoco.MjData(m)
+    mujoco.mj_forward(m, d)
+    assert ground_height(m, d, 0.0, 0.0) == pytest.approx(0.0, abs=1e-6)
+    assert np.allclose(terrain_preview(m, d, distances=(0.2, 1.0), scale=0.1), [0.0, 1.0], atol=1e-5)
+
+
+def test_ground_height_on_heightfield():
+    xml = """<mujoco><asset><hfield name="h" nrow="3" ncol="3" size="2 2 0.5 0.1"
+        elevation="0 0 0  0 1 0  0 0 0"/></asset>
+      <worldbody><geom type="hfield" hfield="h"/></worldbody></mujoco>"""
+    m = mujoco.MjModel.from_xml_string(xml)
+    d = mujoco.MjData(m)
+    mujoco.mj_forward(m, d)
+    assert ground_height(m, d, 0.0, 0.0) == pytest.approx(0.5, abs=1e-3)  # centre cell is the peak (z size 0.5)
+    assert ground_height(m, d, 1.9, 0.0) == pytest.approx(0.0, abs=0.05)  # edge node is flat (cell interpolation)

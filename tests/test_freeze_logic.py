@@ -3,7 +3,7 @@ The real end-to-end check (needs MyoAssist) is scripts/pilots/01_check_freeze.py
 import torch
 from torch import nn
 
-from terrain_memory_prosthesis.utils.freeze import load_and_freeze_human
+from terrain_memory_prosthesis.controllers.freeze import load_and_freeze_human
 
 
 class _PN(nn.Module):

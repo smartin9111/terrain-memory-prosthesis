@@ -51,7 +51,7 @@ def main():
     out = common.out_dir(args.out, "pilot_out/01")
     import numpy as np
     import torch
-    from terrain_memory_prosthesis.utils.freeze import load_and_freeze_human
+    from terrain_memory_prosthesis.controllers.freeze import load_and_freeze_human
 
     lo, hi = map(int, args.extra_obs.split(":"))
     tmp = tempfile.mkdtemp(prefix="freeze_")
