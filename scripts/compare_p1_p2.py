@@ -72,6 +72,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--timesteps", type=int, default=2_000_000, help="Stage-2 steps PER RUN")
     ap.add_argument("--num-envs", type=int, default=None, help="default: largest power of two <= CPU count (must divide 16384)")
+    ap.add_argument("--parallel-train", action="store_true",
+                    help="train P1 and P2 AT THE SAME TIME (for big machines): --num-envs is then per run, default = largest power of two <= CPUs/2")
     ap.add_argument("--amp-lo", type=float, default=0.02)
     ap.add_argument("--amp-hi", type=float, default=0.06)
     ap.add_argument("--episodes", type=int, default=10, help="evaluation episodes per terrain instance")
@@ -84,6 +86,9 @@ def main():
     ap.add_argument("--skip-train", action="store_true", help="reuse --p1-run / --p2-run")
     ap.add_argument("--p1-run", default=None, help="existing P1 Stage-2 session folder (with --skip-train)")
     ap.add_argument("--p2-run", default=None)
+    ap.add_argument("--steps", default="train,eval,report,video",
+                    help="comma list of the stages to run (default all). E.g. several seeds in parallel: --steps train for each seed, "
+                         "then eval_stage2.py + analyze_stage2.py once over all runs (docs/stage2.md)")
     ap.add_argument("--smoke", action="store_true", help="plumbing check: tiny training, 2 episodes, short videos")
     ap.add_argument("--root", default=None, help="MyoAssist checkout (default: auto)")
     a = ap.parse_args()
@@ -92,7 +97,7 @@ def main():
     from terrain_memory_prosthesis.environment import myoassist as ma
 
     cpus = os.cpu_count() or 4
-    n_envs = a.num_envs or pick_num_envs(cpus)
+    n_envs = a.num_envs or pick_num_envs(cpus // 2 if a.parallel_train else cpus)
     workers = a.workers or max(1, cpus - 1)
     out = os.path.abspath(a.out)
     s1 = os.path.abspath(a.stage1_session)
@@ -105,9 +110,37 @@ def main():
     env["MYOASSIST_DIR"] = root
     t0 = time.time()
 
+    steps = set(a.steps.split(","))
     runs = {}
-    if a.skip_train:
+    if a.skip_train or "train" not in steps:
         runs = {"P1": os.path.abspath(a.p1_run), "P2": os.path.abspath(a.p2_run)}
+    elif a.parallel_train:
+        print(f"\n=== 1/4 training P1 and P2 in parallel ({a.timesteps:,} steps each, {n_envs} envs each) ===", flush=True)
+        procs = {}
+        for cond in ("P1", "P2"):
+            cmd = [py, os.path.join(HERE, "train_stage2.py"), "--stage1-session", s1, "--cond", cond, "--controller", a.controller,
+                   "--seed", str(a.seed), "--timesteps", str(a.timesteps), "--num-envs", str(n_envs), "--amp-lo", str(a.amp_lo),
+                   "--amp-hi", str(a.amp_hi), "--tag", "cmp", "--root", root] + (["--smoke"] if a.smoke else [])
+            logp = os.path.join(out, "logs", f"train_{cond}.log")
+            print("$", " ".join(cmd), flush=True)
+            procs[cond] = (subprocess.Popen(cmd, stdout=open(logp, "w"), stderr=subprocess.STDOUT, text=True, env=env), logp)
+            time.sleep(2)  # distinct session-directory time stamps
+        while any(p.poll() is None for p, _ in procs.values()):
+            time.sleep(60)
+            for cond, (p, logp) in procs.items():
+                steps, fps = "?", "?"
+                for line in open(logp, errors="ignore"):
+                    if "total_timesteps" in line:
+                        steps = line.split("|")[2].strip()
+                    elif "fps" in line:
+                        fps = line.split("|")[2].strip()
+                print(f"    {cond}: {steps} / {a.timesteps:,} steps, {fps} steps/s ({'running' if p.poll() is None else 'finished'})", flush=True)
+        for cond, (p, logp) in procs.items():
+            if p.returncode:
+                raise SystemExit(f"training {cond} failed ({p.returncode}); log: {logp}")
+            sess = [l.split("Session directory:")[1].strip() for l in open(logp, errors="ignore") if "Session directory:" in l][0]
+            runs[cond] = sess if os.path.isabs(sess) else os.path.join(root, sess)
+            print(f"    {cond} -> {runs[cond]}", flush=True)
     else:
         for cond in ("P1", "P2"):
             print(f"\n=== 1/4 training {cond}x{a.controller} ({a.timesteps:,} steps, {n_envs} envs) ===", flush=True)
@@ -120,18 +153,20 @@ def main():
             runs[cond] = os.path.join(root, sess) if not os.path.isabs(sess) else sess
             print(f"    -> {runs[cond]}", flush=True)
 
-    print("\n=== 2/4 evaluation (held-out terrains) ===", flush=True)
-    cmd = [py, os.path.join(HERE, "eval_stage2.py"), "--runs", runs["P1"], runs["P2"], "--stage1-session", s1,
-           "--episodes", str(2 if a.smoke else a.episodes), "--max-steps", str(80 if a.smoke else 1000),
-           "--workers", str(workers), "--ckpts", str(a.ckpts), "--out", os.path.join(out, "eval"), "--root", root]
-    run(cmd, os.path.join(out, "logs", "eval.log"), show=("evaluation tasks", "fall_rate", "stage1", "P1", "P2", "Error", "Traceback"), env=env)
+    if "eval" in steps:
+        print("\n=== 2/4 evaluation (held-out terrains) ===", flush=True)
+        cmd = [py, os.path.join(HERE, "eval_stage2.py"), "--runs", runs["P1"], runs["P2"], "--stage1-session", s1,
+               "--episodes", str(2 if a.smoke else a.episodes), "--max-steps", str(80 if a.smoke else 1000),
+               "--workers", str(workers), "--ckpts", str(a.ckpts), "--out", os.path.join(out, "eval"), "--root", root]
+        run(cmd, os.path.join(out, "logs", "eval.log"), show=("evaluation tasks", "fall_rate", "stage1", "P1", "P2", "Error", "Traceback"), env=env)
 
-    print("\n=== 3/4 report (figures + tables) ===", flush=True)
-    cmd = [py, os.path.join(HERE, "analyze_stage2.py"), "--eval", os.path.join(out, "eval"), "--runs", runs["P1"], runs["P2"],
-           "--out", os.path.join(out, "report")]
-    run(cmd, os.path.join(out, "logs", "analyze.log"), show=None, env=env)
+    if "report" in steps:
+        print("\n=== 3/4 report (figures + tables) ===", flush=True)
+        cmd = [py, os.path.join(HERE, "analyze_stage2.py"), "--eval", os.path.join(out, "eval"), "--runs", runs["P1"], runs["P2"],
+               "--out", os.path.join(out, "report")]
+        run(cmd, os.path.join(out, "logs", "analyze.log"), show=None, env=env)
 
-    if not a.no_video:
+    if "video" in steps and not a.no_video:
         print("\n=== 4/4 videos (same terrain, same seeds for P1 and P2) ===", flush=True)
         ff = ffmpeg_exe()
         seeds = a.video_seeds

@@ -49,6 +49,10 @@ It trains P1 and P2 (same seed and recipe), evaluates both and the Stage-1 polic
 Options: `--seed`, `--episodes` (per terrain instance, default 10), `--ckpts`, `--video-amp`, `--skip-train --p1-run <dir> --p2-run <dir>` (re-evaluate
 existing runs), `--no-video`. With more than one training seed run the script once per seed, then analyse them together:
 `python scripts/analyze_stage2.py --eval <dir> --runs "<runs>*" --out <report>` (after `eval_stage2.py` over all runs).
+Several seeds at once (e.g. on a 144-core node: three processes with `--num-envs 64`, each `--seed N --steps train --out ...`), then ONE
+evaluation over all runs: `python scripts/eval_stage2.py --runs "<results>/stage2_P*_mlp_s*_cmp_*" --stage1-session <S1> --episodes 20 --ckpts 5 --out eval_all`
+and `python scripts/analyze_stage2.py --eval eval_all --runs "<results>/stage2_P*_mlp_s*_cmp_*" --out report_all` (single seeds appear as dots).
+`--steps train,eval,report,video` selects the stages; `--skip-train --p1-run D --p2-run D --steps video` makes the videos of existing runs.
 Honest reading: with few episodes the intervals are wide; per-seed dots show the spread between training runs.
 
 ## Run (UCloud)
