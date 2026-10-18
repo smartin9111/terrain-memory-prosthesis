@@ -42,3 +42,5 @@ __MACOSX/
 pilot_out/
 __MACOSX/
 *.zip
+compare_smoke/
+compare_out/
