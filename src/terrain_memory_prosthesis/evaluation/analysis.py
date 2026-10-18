@@ -32,6 +32,12 @@ def read_rows(path: str) -> list[dict]:
     return rows
 
 
+def _n_range(pts: list[dict]) -> str:
+    """Episodes per plotted point: one number, or 'lo-hi' when the terrains differ (flat / sinusoidal use fewer terrain instances)."""
+    ns = sorted({int(p["n"]) for p in pts})
+    return str(ns[0]) if len(ns) == 1 else f"{ns[0]}-{ns[-1]}"
+
+
 def cell_label(r: dict) -> str:
     """'P1xC1' ... or 'Stage 1' for the reference policy."""
     if r.get("cond") == "stage1":
@@ -185,7 +191,7 @@ def fig_fall_rate(rows: list[dict], path: str, per_seed: bool = True):
         x = [p["amp_cm"] + (i - (len(cells) - 1) / 2) * 0.12 for p in pts]
         y = [p["fall_rate"] for p in pts]
         err = [[p["fall_rate"] - p["fall_ci_lo"] for p in pts], [p["fall_ci_hi"] - p["fall_rate"] for p in pts]]
-        ax.errorbar(x, y, yerr=err, marker="o", capsize=3, label=f"{cell} (n={pts[0]['n']}/point)", **style(cell))
+        ax.errorbar(x, y, yerr=err, marker="o", capsize=3, label=f"{cell} (n={_n_range(pts)}/point)", **style(cell))
         if per_seed:
             seeds = sorted({r.get("seed", 0) for r in sel})
             if len(seeds) > 1:
