@@ -8,7 +8,7 @@
                P2 = the same actor with ZERO-initialised input columns for the perception block -> at step 0 both compute the
                same torque (checked numerically, see controllers/warm_start.py). The critic sees the clean preview in both.
 * human      : frozen (weights + muscle log_std), see controllers/freeze.py.
-* controller : --controller NAME from controllers/registry.py ("mlp" = C1; "gru" = C2 once implemented).
+* controller : --controller NAME from controllers/registry.py ("mlp" = C1; "gru" = C2: + a GRU over the last --history frames).
 * perception : --perception NAME from perception/registry.py (default: P1 -> "none", P2 -> "clean_preview");
                --preview-distances "0.2,0.4" sets MYO_PREVIEW_DISTANCES for the clean preview.
 * terrain    : a NEW random field every episode, amplitude ~ U(--amp-lo, --amp-hi) [m], flat safe zone around the start
@@ -39,6 +39,8 @@ def parse():
     ap.add_argument("--stage1-ckpt", default=None, help="Stage-1 checkpoint .zip (default: the last one of the session)")
     ap.add_argument("--cond", required=True, choices=["P1", "P2"])
     ap.add_argument("--controller", default="mlp", help="controller name (controllers/registry.py)")
+    ap.add_argument("--history", type=int, default=None, help="C2 only: observation window length K [control steps, 30 per second] (default 16)")
+    ap.add_argument("--gru-hidden", type=int, default=None, help="C2 only: GRU hidden size (default 32)")
     ap.add_argument("--perception", default=None, help="perception model name (perception/registry.py); default by --cond")
     ap.add_argument("--preview-distances", default=None, help='look-ahead distances of the clean preview, e.g. "0.2,0.4,0.6"')
     ap.add_argument("--seed", type=int, default=0)

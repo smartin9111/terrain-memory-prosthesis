@@ -1,8 +1,9 @@
 """Stage-2 environment: MyoAssistLegImitationExo (+ OSL physics, no-flight penalty, per-episode terrain) with two extra observation blocks
 
-    obs = [ proprioceptive 40 | perception block (the prosthesis actor's, size = PerceptionModel.size) | privileged block (clean preview, critic) ]
+    obs = [ proprioceptive 40 | perception block (the prosthesis actor's, size = PerceptionModel.size) | privileged block (clean preview, critic)
+            | history window (only if MYO_HISTORY=K > 0: the last K frames of the first two blocks, for the recurrent controller C2) ]
 
-(see common/obs_layout.py). The perception model is chosen by the environment variable MYO_PERCEPTION (default "clean_preview";
+(see common/obs_layout.py, environment/history.py). The perception model is chosen by the environment variable MYO_PERCEPTION (default "clean_preview";
 P1 = "none"), so it is inherited by SubprocVecEnv workers; model-specific settings are read by the models themselves
 (MYO_PREVIEW_DISTANCES, MYO_PREVIEW_SCALE, MYO_PREVIEW_ZERO, ...). This module only wires: it contains no perception logic.
 
@@ -15,7 +16,7 @@ import os
 
 import numpy as np
 
-from terrain_memory_prosthesis.common.obs_layout import N_PRIVILEGED, PERCEPTION_ENV_VAR, PREVIEW_ENV_ID
+from terrain_memory_prosthesis.common.obs_layout import HISTORY_ENV_VAR, N_PROPRIO, N_PRIVILEGED, PERCEPTION_ENV_VAR, PREVIEW_ENV_ID
 from terrain_memory_prosthesis.environment.osl_physics import NoFlightPenaltyMixin, apply_osl_physics
 from terrain_memory_prosthesis.environment.terrain import parse_episodic
 
@@ -45,10 +46,20 @@ def _make_env_class():
 
     class MyoAssistLegImitationExoPreview(NoFlightPenaltyMixin, MyoAssistLegImitationExo):
         DEFAULT_OBS_KEYS = MyoAssistLegImitationExo.DEFAULT_OBS_KEYS + ["terrain_percept", "terrain_privileged"]
+        _history = None  # HistoryBuffer once the env is fully set up (stays None while the base class steps during construction)
 
         def _setup(self, **kwargs):
             self._percept, self._priv = build_perception()
             super()._setup(**kwargs)
+            n_hist = int(os.environ.get(HISTORY_ENV_VAR, "0") or 0)
+            if n_hist > 0:  # C2: widen the observation by the window (always the LAST block, see common/obs_layout.py)
+                from gymnasium import spaces
+
+                from terrain_memory_prosthesis.environment.history import HistoryBuffer
+
+                self._history = HistoryBuffer(n_hist, N_PROPRIO + self._percept.size)
+                old = self.observation_space
+                self.observation_space = spaces.Box(-np.inf, np.inf, (old.shape[0] + self._history.size,), dtype=old.dtype)
             m = self.sim.model
             apply_osl_physics(getattr(m, "ptr", m))  # same prosthesis physics as the Stage-1 env (hard limit + motor model, see environment/osl_physics.py)
             # Stage 2 training terrain: new random field at every reset if the terrain name says "episodic_<lo>_<hi>"
@@ -64,7 +75,16 @@ def _make_env_class():
             if self._episode_terrain is not None:
                 self._episode_terrain.resample(self.sim.model)
             self._percept.reset(kwargs.get("seed"))
-            return super().reset(**kwargs)
+            out = super().reset(**kwargs)
+            if self._history is None:
+                return out
+            obs, *rest = out if isinstance(out, tuple) else (out,)
+            obs = self._history.reset(obs)
+            return (obs, *rest) if isinstance(out, tuple) else obs
+
+        def step(self, a, **kwargs):
+            obs, *rest = super().step(a, **kwargs)
+            return (obs if self._history is None else self._history.push(obs), *rest)
 
         def get_obs_dict(self, sim):
             obs = super().get_obs_dict(sim)

@@ -2,7 +2,7 @@
 
 Research question: how much terrain preview (0.2-1.0 m) does the prosthesis controller need, and does a recurrent (GRU)
 controller compensate? Design 2x2: P1/P2 (proprioception only / + terrain preview) x C1/C2 (feedforward MLP / GRU).
-This page documents what is implemented for **C1** (MLP) and how P1 and P2 are made comparable. C2 (GRU) is still open.
+This page documents what is implemented for **C1** (MLP) and how P1 and P2 are made comparable. C2 (GRU) is documented in `docs/controllers.md` (same pipeline: `--controller gru`).
 Code layout and who may import whom: `docs/architecture.md`. The pieces are chosen by name: `--cond P1|P2`, `--controller mlp`,
 `--perception <name>` (default: P1 `none`, P2 `clean_preview`), `--preview-distances 0.2,0.4,...`.
 
@@ -84,7 +84,7 @@ python ../terrain-memory-prosthesis/scripts/eval_stage2.py --runs "rl_train/resu
 
 ## Open items / caveats for the report
 
-* C2 (GRU actor) is not implemented (`controllers/registry.py` raises NotImplementedError for `gru`; add `controllers/gru.py`). The P2 vs P1 question with C1 comes first.
+* C2 (GRU) exists (`--controller gru`, `docs/controllers.md`), but no C2 result has been produced yet. Its memory is a window of K = 16 frames (0.5 s), not an unbounded hidden state: say so when reporting it.
 * Perception noise / dropout / delay: not implemented (perception owner). Rule: no hidden memory in the perception; dropout = zeros + validity bit; same delay for C1 and C2.
 * One Stage-1 seed; prosthesis armature (0.1 kg m^2) is an assumption (sensitivity 0.05-0.2 still to do).
 * The 2-6 cm training band is a default taken from the 03a calibration of the blind Stage-1 policy (6 cm: 80 % falls, flat: 0 %); check it against the full 03a table before the long runs - a band where the blind policy never falls leaves no headroom, one where the *frozen human* falls whatever the prosthesis does hides the effect.

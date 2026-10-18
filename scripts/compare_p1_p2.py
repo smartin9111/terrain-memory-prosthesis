@@ -68,7 +68,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--stage1-session", required=True, help="folder with session_config.json + trained_models/ of the final Stage 1")
     ap.add_argument("--out", default="compare_out")
-    ap.add_argument("--controller", default="mlp")
+    ap.add_argument("--controller", default="mlp", help='"mlp" = C1, "gru" = C2 (GRU over the last --history frames)')
+    ap.add_argument("--history", type=int, default=None, help="C2 only: observation window length K (default 16)")
+    ap.add_argument("--gru-hidden", type=int, default=None, help="C2 only: GRU hidden size (default 32)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--timesteps", type=int, default=2_000_000, help="Stage-2 steps PER RUN")
     ap.add_argument("--num-envs", type=int, default=None, help="default: largest power of two <= CPU count (must divide 16384)")
@@ -111,6 +113,7 @@ def main():
     t0 = time.time()
 
     steps = set(a.steps.split(","))
+    extra = (["--history", str(a.history)] if a.history else []) + (["--gru-hidden", str(a.gru_hidden)] if a.gru_hidden else [])
     runs = {}
     if a.skip_train or "train" not in steps:
         runs = {"P1": os.path.abspath(a.p1_run), "P2": os.path.abspath(a.p2_run)}
@@ -120,7 +123,7 @@ def main():
         for cond in ("P1", "P2"):
             cmd = [py, os.path.join(HERE, "train_stage2.py"), "--stage1-session", s1, "--cond", cond, "--controller", a.controller,
                    "--seed", str(a.seed), "--timesteps", str(a.timesteps), "--num-envs", str(n_envs), "--amp-lo", str(a.amp_lo),
-                   "--amp-hi", str(a.amp_hi), "--tag", "cmp", "--root", root] + (["--smoke"] if a.smoke else [])
+                   "--amp-hi", str(a.amp_hi), "--tag", "cmp", "--root", root] + extra + (["--smoke"] if a.smoke else [])
             logp = os.path.join(out, "logs", f"train_{cond}.log")
             print("$", " ".join(cmd), flush=True)
             procs[cond] = (subprocess.Popen(cmd, stdout=open(logp, "w"), stderr=subprocess.STDOUT, text=True, env=env), logp)
@@ -146,7 +149,7 @@ def main():
             print(f"\n=== 1/4 training {cond}x{a.controller} ({a.timesteps:,} steps, {n_envs} envs) ===", flush=True)
             cmd = [py, os.path.join(HERE, "train_stage2.py"), "--stage1-session", s1, "--cond", cond, "--controller", a.controller,
                    "--seed", str(a.seed), "--timesteps", str(a.timesteps), "--num-envs", str(n_envs), "--amp-lo", str(a.amp_lo),
-                   "--amp-hi", str(a.amp_hi), "--tag", "cmp", "--root", root]
+                   "--amp-hi", str(a.amp_hi), "--tag", "cmp", "--root", root] + extra
             if a.smoke:
                 cmd.append("--smoke")
             sess = run(cmd, os.path.join(out, "logs", f"train_{cond}.log"), env=env)

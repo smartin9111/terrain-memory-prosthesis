@@ -108,16 +108,18 @@ def ensure_env_registered(env_id: str):
 
 
 def apply_run_env(session_or_config: str) -> dict:
-    """If the session is a Stage-2 run, set the perception variables it was trained with (MYO_PERCEPTION, ...) so that every tool
-    (video, pilots, evaluation) builds the env the policy expects. Returns what was set ({} for Stage-1 sessions / templates)."""
+    """If the session is a Stage-2 run, set the environment variables it was trained with - the perception settings (MYO_PERCEPTION,
+    MYO_PREVIEW_*) and the controller settings (C2: MYO_HISTORY, MYO_GRU_HIDDEN) - so that every tool (video, pilots, evaluation)
+    builds the env and the policy the checkpoint expects. Returns what was set ({} for Stage-1 sessions / templates)."""
     p = resolve(session_or_config)
     d = p if os.path.isdir(p) else os.path.dirname(p)
     info = os.path.join(d, "stage2_info.json")
     if not os.path.isfile(info):
         return {}
     with open(info) as f:
-        env = (json.load(f).get("perception_env")) or {}
-    for k in [k for k in os.environ if k == "MYO_PERCEPTION" or k.startswith("MYO_PREVIEW_")]:
+        meta = json.load(f)
+    env = {**(meta.get("perception_env") or {}), **(meta.get("controller_env") or {})}
+    for k in [k for k in os.environ if k in ("MYO_PERCEPTION", "MYO_HISTORY", "MYO_GRU_HIDDEN") or k.startswith("MYO_PREVIEW_")]:
         del os.environ[k]
     os.environ.update({k: str(v) for k, v in env.items()})
     return env
@@ -139,11 +141,23 @@ def load_config(path: str):
 
 
 def load_model(ckpt: str):
-    """Load a stage-1/2 checkpoint (human + prosthesis actor policy) for inference."""
+    """Load a stage-1/2 checkpoint (human + prosthesis actor policy) for inference.
+
+    A checkpoint of a controller with its own policy class (C2 = "gru") stores that class BY REFERENCE (module + name), so SB3 imports
+    it itself; we only have to set the run's environment variables first (window length, GRU size: stage2_info.json)."""
     from stable_baselines3 import PPO
     from rl_train.train.policies.rl_agent_exo import HumanExoActorCriticPolicy
 
-    return PPO.load(resolve(ckpt), device="cpu", custom_objects={"policy_class": HumanExoActorCriticPolicy})
+    ckpt = resolve(ckpt)
+    run_dir = os.path.dirname(os.path.dirname(ckpt))  # <run>/trained_models/model_N.zip
+    info = os.path.join(run_dir, "stage2_info.json")
+    if os.path.isfile(info):
+        with open(info) as f:
+            controller = (json.load(f).get("args") or {}).get("controller", "mlp")
+        if controller != "mlp":
+            apply_run_env(run_dir)
+            return PPO.load(ckpt, device="cpu")
+    return PPO.load(ckpt, device="cpu", custom_objects={"policy_class": HumanExoActorCriticPolicy})
 
 
 def make_eval_env(cfg, max_steps: int, target_velocity: float | None = None):

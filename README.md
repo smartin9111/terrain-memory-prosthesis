@@ -23,7 +23,7 @@ Research project investigating the trade-off between exteroceptive terrain perce
 ## Controllers
 
 - C1: feed-forward PPO controller
-- C2: GRU-based recurrent PPO controller
+- C2: GRU-based recurrent controller: the C1 network plus a GRU over the last K observation frames (`docs/controllers.md`)
 
 ## Main Research Question
 
@@ -70,13 +70,13 @@ The two axes of the 2x2 design live in separate packages and meet only through t
 src/terrain_memory_prosthesis/
   common/        shared contract: obs_layout.py (sizes), interfaces.py (PerceptionModel), session_config.py (who sees which obs)
   perception/    PERCEPTION AXIS  registry.py, none.py (P1), clean_preview.py (P2; ray-cast heights 0.2-1.0 m ahead), future: noise/dropout/delay/encodings
-  controllers/   CONTROLLER AXIS  registry.py, mlp.py (C1), warm_start.py, freeze.py (frozen human), future: gru.py (C2)
-  environment/   MyoAssist glue (myoassist.py), terrain.py / episode_terrain.py, osl_physics.py (Stage-1 physics), preview_env.py (Stage-2 env)
+  controllers/   CONTROLLER AXIS  registry.py, mlp.py (C1), gru.py + gru_module.py (C2), warm_start.py, freeze.py (frozen human)
+  environment/   MyoAssist glue (myoassist.py), terrain.py / episode_terrain.py, osl_physics.py (Stage-1 physics), preview_env.py (Stage-2 env), history.py (C2 observation window)
   training/      stage2.py - the only place that assembles perception + controller + PPO
   evaluation/    rollout.py (seeded deterministic rollouts, parallel), reporting.py (Wilson CI, summaries)
 scripts/
   train.py                       Stage 1 (MyoAssist run_train with our env ids)
-  train_stage2.py                Stage 2 launcher: --cond P1|P2 --controller mlp --perception NAME --preview-distances ...
+  train_stage2.py                Stage 2 launcher: --cond P1|P2 --controller mlp|gru --perception NAME --preview-distances ...
   compare_p1_p2.py               ONE COMMAND: train P1+P2, evaluate, figures + tables, side-by-side videos (docs/stage2.md)
   eval_stage2.py                 held-out terrain evaluation of Stage-2 runs
   analyze_stage2.py              figures (fall rate vs amplitude, metrics, training curves) and tables from an evaluation
@@ -86,7 +86,7 @@ scripts/
 configs/experiments/             p1c1.yaml ... p2c2.yaml (design), p1c1_myoassist.json, stage1_flat_final.json (+ history/)
 tests/                           unit tests incl. test_import_boundaries.py (guards the split)
 results/                         experiment outputs (git-ignored, except results/stage1/ = Stage-1 gate results, no checkpoints/videos)
-docs/                            architecture.md, stage2.md, stage1_findings.md, design_decisions.md, ucloud.md, colleague_tasks.md
+docs/                            architecture.md, stage2.md, controllers.md, stage1_findings.md, design_decisions.md, ucloud.md, colleague_tasks.md
 ```
 
 ## Development Responsibilities
@@ -99,7 +99,7 @@ One person per axis; shared packages need both reviews (`.github/CODEOWNERS`). W
 
 ### Control (`controllers/`)
 - C1 feed-forward PPO (MyoAssist multi-actor policy; Stage 2 trains the `exo_actor`), freezing of the human, Stage 1
-- C2 GRU controller (sb3-contrib `RecurrentPPO` is LSTM-only and not compatible with MyoAssist's multi-actor policy: needs its own implementation)
+- C2 GRU controller: implemented as a GRU over a sliding window of observation frames (sb3-contrib `RecurrentPPO` is LSTM-only and not compatible with MyoAssist's multi-actor policy); design, cost and open choices in `docs/controllers.md`
 
 ### Shared
 - `common/`, `environment/`, `training/`, `evaluation/` (evaluation owner to be agreed), experiments, results, report

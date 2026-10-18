@@ -10,7 +10,7 @@ import json
 import os
 from datetime import datetime
 
-from terrain_memory_prosthesis.common.obs_layout import PERCEPTION_ENV_VAR
+from terrain_memory_prosthesis.common.obs_layout import GRU_HIDDEN_ENV_VAR, HISTORY_ENV_VAR, PERCEPTION_ENV_VAR
 from terrain_memory_prosthesis.environment import myoassist as ma
 
 N_MUSCLE = 18
@@ -64,6 +64,11 @@ def run(a) -> str:
     # perception: chosen by name; the env variables are inherited by the SB3 workers created below
     penv = perception_env(a.cond, getattr(a, "perception", None), getattr(a, "preview_distances", None))
     os.environ.update(penv)
+    # controller: its settings (C2: window length, GRU size) are environment variables too (env + policy class + eval tools read them)
+    for k in (HISTORY_ENV_VAR, GRU_HIDDEN_ENV_VAR):
+        os.environ.pop(k, None)
+    cenv = controllers.env_vars(a.controller, a)
+    os.environ.update(cenv)
     n_percept = perception.build(penv[PERCEPTION_ENV_VAR]).size
     if (a.cond == "P1") != (n_percept == 0):
         raise SystemExit(f"condition {a.cond} does not fit perception {penv[PERCEPTION_ENV_VAR]!r} (size {n_percept})")
@@ -86,7 +91,7 @@ def run(a) -> str:
     torch.manual_seed(a.seed)
 
     env = H.create_environment(cfg, False)
-    model = H.get_stable_baselines3_model(cfg, env)
+    model = controllers.build_model(a.controller, cfg, env) or H.get_stable_baselines3_model(cfg, env)
     model.set_random_seed(a.seed)
     stage1 = ma.load_model(ckpt)
     info = controllers.apply(a.controller, model, stage1, n_muscle=N_MUSCLE)
@@ -101,7 +106,7 @@ def run(a) -> str:
     with open(os.path.join(log_dir, "session_config.json"), "w", encoding="utf-8") as f:
         json.dump(sc, f, ensure_ascii=False, indent=2)
     with open(os.path.join(log_dir, "stage2_info.json"), "w") as f:
-        json.dump(dict(args=vars(a), stage1_session=session, stage1_ckpt=ckpt, perception_env=penv, n_percept=n_percept,
+        json.dump(dict(args=vars(a), stage1_session=session, stage1_ckpt=ckpt, perception_env=penv, controller_env=cenv, n_percept=n_percept,
                        warm_start=info, equiv_max_diff=diff, trainable_parameters=n_train, terrain=terrain,
                        git=git_info(), started=datetime.now().isoformat()), f, indent=2)
 

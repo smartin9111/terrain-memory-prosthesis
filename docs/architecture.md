@@ -16,8 +16,8 @@ The 2x2 design has two axes. Each axis lives in its own package and is chosen **
 |---|---|---|---|
 | `common/` | both (CODEOWNERS: both) | `obs_layout.py` (sizes), `interfaces.py` (`PerceptionModel`), `session_config.py` (who sees which obs) | nothing internal |
 | `perception/` | perception axis | `registry.py`, `none.py` (P1), `clean_preview.py` (P2), future: noise / dropout / delay / encodings | `common` |
-| `controllers/` | controller axis | `registry.py`, `mlp.py` (C1), `warm_start.py`, `freeze.py`, future `gru.py` (C2) | `common` |
-| `environment/` | shared | MyoAssist glue, terrain, OSL physics, `preview_env.py` | `common`, `perception` |
+| `controllers/` | controller axis | `registry.py`, `mlp.py` (C1), `gru.py` + `gru_module.py` (C2), `warm_start.py`, `freeze.py` | `common` |
+| `environment/` | shared | MyoAssist glue, terrain, OSL physics, `preview_env.py`, `history.py` (C2 observation window) | `common`, `perception` |
 | `evaluation/` | shared (owner open) | rollouts, perturbations, reporting | `common`, `environment` |
 | `training/` | shared | `stage2.py` = Stage-1 policy -> frozen human + controller + perception -> PPO | everything |
 
@@ -40,7 +40,7 @@ into `training/`: it runs MyoAssist's trainer unchanged, only the environment an
 ## The one interface: the observation vector
 
 ```
-obs = [ proprioceptive 40 | perception block (n_percept) | privileged clean preview 5 ]
+obs = [ proprioceptive 40 | perception block (n_percept) | privileged clean preview 5 | (C2 only) window of the last K frames ]
           human + prosthesis      prosthesis actor only         critic only
 ```
 
