@@ -44,3 +44,5 @@ __MACOSX/
 *.zip
 compare_smoke/
 compare_out/
+compare_smoke/
+compare_out/
