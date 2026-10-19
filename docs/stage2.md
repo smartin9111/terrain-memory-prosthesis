@@ -90,3 +90,20 @@ python ../terrain-memory-prosthesis/scripts/eval_stage2.py --runs "rl_train/resu
 * The 2-6 cm training band is a default taken from the 03a calibration of the blind Stage-1 policy (6 cm: 80 % falls, flat: 0 %); check it against the full 03a table before the long runs - a band where the blind policy never falls leaves no headroom, one where the *frozen human* falls whatever the prosthesis does hides the effect.
 * The human keeps its (small) Stage-1 exploration noise during Stage-2 training; evaluation is deterministic.
 * 3 training seeds per condition is the minimum for a statement; report per-seed values, not only the mean.
+
+## Continuing a stopped run (`--resume`)
+
+A UCloud job can expire or be restarted in the middle of a long run. The run folder keeps a checkpoint every `--logfreq` PPO iterations
+(10 by default, ~164k steps), so nothing is lost but the last few iterations:
+
+```bash
+python scripts/train_stage2.py --resume <run dir> --timesteps 10000000     # the NEW TOTAL, not the remaining steps
+```
+
+* Everything that defines the run (condition, controller, `--history`, seed, terrain range, `--num-envs`, ...) is read from the run's own
+  `stage2_info.json`; only `--timesteps` is yours. The run continues **in the same folder** (`trained_models/`, `train_log.json` is
+  appended, `stage2_info.json` gets a `resumed` list with the step it restarted from and the commit).
+* Restored: policy, value function, Adam state, step counter. Re-applied: the frozen human. Not restored: the rollout in progress, the
+  running episode statistics, and the random streams (a new seed `seed + 1000 * n` is used), so a resumed run is not bit-identical to an
+  uninterrupted one. Say so when you report it.
+* Works for C1 and C2 (`tests/test_refreeze.py` covers the freezing; both paths were run end to end on the smoke config).

@@ -140,11 +140,12 @@ def load_config(path: str):
     return H.get_session_config_from_path(p, t)
 
 
-def load_model(ckpt: str):
+def load_model(ckpt: str, env=None):
     """Load a stage-1/2 checkpoint (human + prosthesis actor policy) for inference.
 
     A checkpoint of a controller with its own policy class (C2 = "gru") stores that class BY REFERENCE (module + name), so SB3 imports
-    it itself; we only have to set the run's environment variables first (window length, GRU size: stage2_info.json)."""
+    it itself; we only have to set the run's environment variables first (window length, GRU size: stage2_info.json).
+    `env` (optional): attach a training env, needed to CONTINUE training (the rollout buffer is sized from it)."""
     from stable_baselines3 import PPO
     from rl_train.train.policies.rl_agent_exo import HumanExoActorCriticPolicy
 
@@ -156,8 +157,8 @@ def load_model(ckpt: str):
             controller = (json.load(f).get("args") or {}).get("controller", "mlp")
         if controller != "mlp":
             apply_run_env(run_dir)
-            return PPO.load(ckpt, device="cpu")
-    return PPO.load(ckpt, device="cpu", custom_objects={"policy_class": HumanExoActorCriticPolicy})
+            return PPO.load(ckpt, env=env, device="cpu")
+    return PPO.load(ckpt, env=env, device="cpu", custom_objects={"policy_class": HumanExoActorCriticPolicy})
 
 
 def make_eval_env(cfg, max_steps: int, target_velocity: float | None = None):

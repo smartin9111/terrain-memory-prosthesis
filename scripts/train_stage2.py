@@ -17,6 +17,8 @@
                num_envs x n_steps = 16384 (num_envs must divide 16384).
 * output     : <myoassist>/rl_train/results/stage2_<cond>_<controller>_s<seed>_<stamp>/ (same layout as a Stage-1 session) +
                stage2_info.json (arguments, perception settings, git commit: everything needed to reproduce and to evaluate it).
+* resume     : --resume <run dir> --timesteps <new total>  continues a run that was stopped (job expired, crash) from its latest
+               checkpoint, in the same folder, with the settings stored in its stage2_info.json (cond, controller, seed, ...).
 Same --seed => P1 and P2 use the same torch/numpy seed.
 """
 import argparse
@@ -35,9 +37,11 @@ from terrain_memory_prosthesis.environment import osl_physics, preview_env  # no
 
 def parse():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--stage1-session", required=True, help="Stage-1 session folder (session_config.json + trained_models/)")
+    ap.add_argument("--resume", default=None, metavar="RUN_DIR",
+                    help="CONTINUE this Stage-2 run in place (latest checkpoint, its own settings from stage2_info.json) up to --timesteps in total")
+    ap.add_argument("--stage1-session", default=None, help="Stage-1 session folder (session_config.json + trained_models/); not needed with --resume")
     ap.add_argument("--stage1-ckpt", default=None, help="Stage-1 checkpoint .zip (default: the last one of the session)")
-    ap.add_argument("--cond", required=True, choices=["P1", "P2"])
+    ap.add_argument("--cond", default=None, choices=["P1", "P2"], help="not needed with --resume")
     ap.add_argument("--controller", default="mlp", help="controller name (controllers/registry.py)")
     ap.add_argument("--history", type=int, default=None, help="C2 only: observation window length K [control steps, 30 per second] (default 16)")
     ap.add_argument("--gru-hidden", type=int, default=None, help="C2 only: GRU hidden size (default 32)")
@@ -54,8 +58,12 @@ def parse():
     ap.add_argument("--smoke", action="store_true", help="plumbing only: 2 envs, 64 steps/rollout, 256 steps in total")
     ap.add_argument("--root", default=None)
     a = ap.parse_args()
+    if not a.resume and not (a.stage1_session and a.cond):
+        ap.error("--stage1-session and --cond are required (unless --resume)")
     if a.smoke:
-        a.num_envs, a.timesteps, a.logfreq = 2, 256, 1
+        a.num_envs, a.logfreq = 2, 1
+        if not a.resume:
+            a.timesteps = 256
     return a
 
 

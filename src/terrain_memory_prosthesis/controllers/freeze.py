@@ -17,11 +17,19 @@ def load_and_freeze_human(model, stage1_model, n_muscle: int = 18):
     with torch.no_grad():
         model.policy.log_std[:n_muscle] = stage1_model.policy.log_std[:n_muscle].to(model.policy.log_std.device)
 
-    # 2) freeze the human network
+    refreeze_human(model, n_muscle)
+    return model
+
+
+def refreeze_human(model, n_muscle: int = 18):
+    """Freeze the human of a model WITHOUT copying anything (for a model loaded from a Stage-2 checkpoint: `requires_grad` flags and
+    the log_std gradient hook are not stored in the checkpoint, the weights already are the frozen Stage-1 ones)."""
+    new_pn = model.policy.policy_network
+    # freeze the human network
     for p in new_pn.human_policy_net.parameters():
         p.requires_grad_(False)
 
-    # 3) log_std is ONE parameter for all actions: zero the gradient on the muscle entries only
+    # log_std is ONE parameter for all actions: zero the gradient on the muscle entries only
     mask = torch.ones_like(model.policy.log_std)
     mask[:n_muscle] = 0.0
     model.policy.log_std.register_hook(lambda g: g * mask.to(g.device))
