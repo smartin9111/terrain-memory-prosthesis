@@ -123,7 +123,7 @@ def eval_task(task: dict) -> dict:
     """
     init(task.get("root"))
     if task.get("env") is not None:  # the run's perception settings (must match training); replaces any left over from a previous task
-        for k in [k for k in os.environ if k == "MYO_PERCEPTION" or k.startswith("MYO_PREVIEW_")]:
+        for k in [k for k in os.environ if k == "MYO_PERCEPTION" or k.startswith(("MYO_PREVIEW_", "MYO_SENSOR_"))]:
             del os.environ[k]
         os.environ.update({k: str(v) for k, v in task["env"].items()})
     cfg = load_config(task["config"])
