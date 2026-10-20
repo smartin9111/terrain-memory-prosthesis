@@ -37,6 +37,17 @@ def test_window_excludes_the_privileged_tail():
     assert -1.0 not in out[9:]  # the tail (privileged block) is never copied into the history
 
 
+def test_frame_is_taken_from_frame_start_not_from_the_clean_block():
+    # layout of the sensor-imperfection env: [clean 4 | sensor values 3 | validity 3 | privileged 2]; frame = values + validity
+    h = HistoryBuffer(n_hist=2, frame_width=6, frame_start=4)
+    obs = np.concatenate([np.full(4, 99.0), np.arange(6, dtype=float), np.full(2, -1.0)])
+    out = h.reset(obs)
+    assert 99.0 not in out[obs.size:] and -1.0 not in out[obs.size:]  # neither the clean block nor the privileged tail
+    assert np.all(out[obs.size:].reshape(2, 6) == np.arange(6))
+    out = h.push(obs + 100.0)
+    assert np.all(out[obs.size:].reshape(2, 6)[-1] == np.arange(6) + 100.0)
+
+
 def test_push_before_reset_does_not_crash_and_bad_length_is_rejected():
     assert HistoryBuffer(2, 6).push(_obs(3)).shape == (9 + 12,)
     with pytest.raises(ValueError):
@@ -46,9 +57,11 @@ def test_push_before_reset_does_not_crash_and_bad_length_is_rejected():
 # ---------------------------------------------------------------- layout
 def test_layout_with_history_is_appended_last():
     lay = ObsLayout(n_percept=5, n_hist=16)
-    assert lay.percept_range == (40, 45) and lay.priv_range == (45, 50)
-    assert lay.hist_range == (50, 50 + 16 * 45) and lay.total == 50 + 16 * 45
-    assert ObsLayout(n_percept=0).total == 45  # without a window nothing changes (C1)
+    assert lay.sensor_values_range == (40, 80) and lay.sensor_validity_range == (80, 120)
+    assert lay.percept_range == (120, 125) and lay.priv_range == (125, 130)
+    assert lay.frame_start == 40 and lay.frame_width == 85  # sensor values + validity + perception; never the clean 0:40
+    assert lay.hist_range == (130, 130 + 16 * 85) and lay.total == 130 + 16 * 85
+    assert ObsLayout(n_percept=0).total == 125  # without a window nothing changes (C1)
 
 
 @pytest.mark.parametrize("n_percept,n_hist", [(0, 16), (5, 16), (3, 1), (5, 32)])

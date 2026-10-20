@@ -4,7 +4,8 @@ Design (decision to review with the team, see docs/controllers.md):
   * memory = a GRU run over a WINDOW of the last K frames that the environment appends to the observation (environment/history.py).
     No hidden state is carried across steps, so SB3's PPO, the rollout buffer, evaluation and videos stay unchanged and C1 and C2
     are trained by the very same code path. The memory horizon is K / 30 s (--history, default 16 = 0.53 s, about half a gait cycle); hidden size 32 (--gru-hidden).
-  * the GRU sees the same inputs the prosthesis MLP sees (proprioception [+ the perception block in P2]), one frame per step.
+  * the GRU sees the same inputs the prosthesis MLP sees (the sensor values + validity bits it reads [+ the perception block in P2]),
+    one frame per step, taken from the sensor block of the observation, never from the clean proprioception (common/obs_layout.py).
   * start: delta = 0 exactly, so C2 == C1 == Stage 1 at step 0 (checked numerically by check_equivalent).
   * the critic is unchanged: it is privileged (clean preview) and needs no memory for the question under study.
 
@@ -18,7 +19,7 @@ import os
 import torch
 from rl_train.train.policies.rl_agent_exo import CustomNetworkHumanExo, HumanExoActorCriticPolicy
 
-from terrain_memory_prosthesis.common.obs_layout import GRU_HIDDEN_ENV_VAR, HISTORY_ENV_VAR, N_PRIVILEGED, N_PROPRIO
+from terrain_memory_prosthesis.common.obs_layout import GRU_HIDDEN_ENV_VAR, HISTORY_ENV_VAR, ObsLayout
 from terrain_memory_prosthesis.controllers.gru_module import HistoryGruResidual, n_percept_from
 from terrain_memory_prosthesis.controllers.registry import register
 from terrain_memory_prosthesis.controllers.warm_start import warm_start
@@ -51,13 +52,16 @@ class GruCustomNetwork(CustomNetworkHumanExo):
             raise RuntimeError(f"C2 needs {HISTORY_ENV_VAR}=K (observation window length) in the environment; "
                                "stage2_info.json stores it as controller_env (environment/myoassist.py:apply_run_env)")
         hidden = int(os.environ.get(GRU_HIDDEN_ENV_VAR, "0") or DEFAULT_HIDDEN)
-        n_percept = n_percept_from(self.observation_space.shape[0], n_hist)
-        frame_width = N_PROPRIO + n_percept
+        lay = ObsLayout(n_percept=n_percept_from(self.observation_space.shape[0], n_hist), n_hist=n_hist)
+        frame_idx = [i - lay.frame_start for i in _expand(self.net_indexing_info["exo_actor"]["observation"])]
+        if min(frame_idx) < 0:
+            raise ValueError("the prosthesis actor reads the clean proprioception obs[0:40]; C2 needs it to read the sensor block "
+                             "(common/session_config.py routes it there)")
         if not isinstance(self.exo_policy_net[-1], torch.nn.Tanh):
             raise RuntimeError("expected the prosthesis MLP to end in Tanh")
         self.memory = HistoryGruResidual(
-            frame_idx=_expand(self.net_indexing_info["exo_actor"]["observation"]), frame_width=frame_width, n_hist=n_hist,
-            offset=frame_width + N_PRIVILEGED, hidden=hidden, n_out=self.network_index_handler.get_action_num("exo_actor"),
+            frame_idx=frame_idx, frame_width=lay.frame_width, n_hist=n_hist,
+            offset=lay.hist_range[0], hidden=hidden, n_out=self.network_index_handler.get_action_num("exo_actor"),
         )
 
     def forward_actor(self, obs: torch.Tensor) -> torch.Tensor:

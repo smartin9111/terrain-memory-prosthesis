@@ -22,7 +22,8 @@ action = tanh(pre + delta)
 * **Starts as C1.** The Linear head is initialised to exactly zero, so at step 0 `delta = 0`: C2 outputs the same torque as C1 and as
   Stage 1 (`check_equivalent`: max difference 0.0 on random observations). The same idea as the zero-initialised preview
   columns of P2. Any later difference between C2 and C1 therefore comes from what the GRU learned.
-* **Same inputs.** A frame contains the numbers the MLP itself sees (22 proprioceptive inputs; +5 preview heights in P2), so the
+* **Same inputs.** A frame contains the numbers the MLP itself sees: the 22 sensor values and their 22 validity bits (+5 preview heights in P2),
+  taken from the corrupted sensor block and never from the clean `obs[0:40]`, so noise, delay and dropout hit C1 and C2 alike. The
   comparison is "same information, with or without memory" - not "more information".
 * **Critic unchanged.** The critic is privileged (it sees the clean preview) and has no memory; the question under study is the
   actor's memory.

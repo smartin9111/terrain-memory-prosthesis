@@ -35,6 +35,10 @@ def perception_env(cond: str, perception: str | None, preview_distances: str | N
     env = {PERCEPTION_ENV_VAR: perception or DEFAULT_PERCEPTION[cond]}
     if preview_distances:
         env["MYO_PREVIEW_DISTANCES"] = preview_distances
+    # Record and propagate the exact sensor impairment settings to subprocess workers and evaluation.
+    env["MYO_SENSOR_NOISE_STD"] = os.environ.get("MYO_SENSOR_NOISE_STD", "0")
+    env["MYO_SENSOR_DELAY_STEPS"] = os.environ.get("MYO_SENSOR_DELAY_STEPS", "0")
+    env["MYO_SENSOR_DROPOUT_PROBABILITY"] = os.environ.get("MYO_SENSOR_DROPOUT_PROBABILITY", "0")
     return env
 
 
@@ -136,7 +140,9 @@ def run(a) -> str:
         model.set_random_seed(a.seed)
         stage1 = ma.load_model(ckpt)
         info = controllers.apply(a.controller, model, stage1, n_muscle=N_MUSCLE)
-        diff = check_equivalent(model, stage1, n_obs_old=N_PROPRIO)
+        # atol 1e-4: the value outputs are O(10-100), so float32 rounding alone (BLAS blocking / thread count differs between the
+        # 22-column Stage-1 layer and the zero-extended one) reaches ~1e-5; a wrongly placed column gives errors of O(0.1) and more.
+        diff = check_equivalent(model, stage1, n_obs_old=N_PROPRIO, atol=1e-4)
         n_train = sum(p.numel() for p in model.policy.parameters() if p.requires_grad)
         print(f"warm start from {ckpt}\n  {info}\n  equivalent to Stage 1 on random observations (max diff {diff:.1e}); "
               f"trainable parameters: {n_train}", flush=True)

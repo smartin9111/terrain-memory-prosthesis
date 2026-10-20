@@ -40,15 +40,16 @@ into `training/`: it runs MyoAssist's trainer unchanged, only the environment an
 ## The one interface: the observation vector
 
 ```
-obs = [ proprioceptive 40 | perception block (n_percept) | privileged clean preview 5 | (C2 only) window of the last K frames ]
-          human + prosthesis      prosthesis actor only         critic only
+obs = [ clean 40 | corrupted sensor values 40 | validity 40 | perception (n) | privileged preview 5 | (C2 only) window of the last K frames ]
+          human + critic      prosthesis actor         prosthesis actor      prosthesis actor     critic only        prosthesis actor (C2 memory)
 ```
 
-* `obs[0:40]` is what the frozen Stage-1 human was trained on. Never reorder or rescale it.
-* The perception block is produced by a `PerceptionModel` (`common/interfaces.py`): `name`, `size`, `reset(seed)`, `observe(model, data)`.
-  P1 = `"none"` (size 0), P2 = `"clean_preview"` (size = number of distances, default 5).
-* The critic always gets the *clean* preview (asymmetric actor-critic), so degrading the perception cannot be blamed on a worse value baseline.
-* Layout arithmetic lives only in `common/obs_layout.py`; `common/session_config.py` decides who sees what.
+* `obs[0:40]` remains the clean MyoAssist observation and is never reordered or rescaled. The frozen human actor and critic keep using it.
+* `obs[40:80]` contains the sensor-impaired duplicate; `obs[80:120]` contains matching validity bits. The prosthesis actor's existing 22 channels are redirected to corresponding channels in these blocks, so sensor faults do not leak into the human actor.
+* The perception block is produced by a `PerceptionModel` (`common/interfaces.py`): `name`, `size`, `reset(seed)`, `observe(model, data)`. P1 = `"none"` (size 0), P2 = `"clean_preview"` (default size 5).
+* The critic always gets the *clean* preview, so degrading actor inputs does not also degrade the value baseline.
+* The C2 window holds the last K frames of `[sensor values | validity | perception]` (the prosthesis actor's own view), never the clean `obs[0:40]`: a memory over the clean values would bypass the sensor imperfections that C1 has to live with.
+* Layout arithmetic lives in `common/obs_layout.py`; `common/session_config.py` defines actor/critic routing.
 
 Fairness rules for every perception model (they keep C1 vs C2 comparable): fixed size; no hidden memory (a pure delay buffer is
 fine); dropout = zeros + validity bit; own RNG seeded in `reset(seed)`; the default clean preview stays bit-identical.
@@ -64,7 +65,7 @@ fine); dropout = zeros + validity bit; own RNG seeded in `reset(seed)`; the defa
 
 ## Environment variables of the perception (read inside the env workers)
 
-`MYO_PERCEPTION` (model name), `MYO_PREVIEW_DISTANCES` (e.g. `0.2,0.4`), `MYO_PREVIEW_SCALE`, `MYO_PREVIEW_ZERO` (control: same size, no information).
+`MYO_PERCEPTION` (model name), `MYO_PREVIEW_DISTANCES`, `MYO_PREVIEW_SCALE`, `MYO_PREVIEW_ZERO`, plus `MYO_SENSOR_NOISE_STD`, `MYO_SENSOR_DELAY_STEPS`, and `MYO_SENSOR_DROPOUT_PROBABILITY`. Sensor settings accept scalars or JSON arrays for the 40 channels. Training records the exact settings in `stage2_info.json`, and evaluation reuses them.
 `scripts/train_stage2.py` sets them from its arguments; add yours the same way and list them in `stage2_info.json`.
 
 ## Git workflow

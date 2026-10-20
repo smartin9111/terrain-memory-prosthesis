@@ -109,7 +109,7 @@ def ensure_env_registered(env_id: str):
 
 def apply_run_env(session_or_config: str) -> dict:
     """If the session is a Stage-2 run, set the environment variables it was trained with - the perception settings (MYO_PERCEPTION,
-    MYO_PREVIEW_*) and the controller settings (C2: MYO_HISTORY, MYO_GRU_HIDDEN) - so that every tool (video, pilots, evaluation)
+    MYO_PREVIEW_*, MYO_SENSOR_*) and the controller settings (C2: MYO_HISTORY, MYO_GRU_HIDDEN) - so that every tool (video, pilots, evaluation)
     builds the env and the policy the checkpoint expects. Returns what was set ({} for Stage-1 sessions / templates)."""
     p = resolve(session_or_config)
     d = p if os.path.isdir(p) else os.path.dirname(p)
@@ -119,7 +119,8 @@ def apply_run_env(session_or_config: str) -> dict:
     with open(info) as f:
         meta = json.load(f)
     env = {**(meta.get("perception_env") or {}), **(meta.get("controller_env") or {})}
-    for k in [k for k in os.environ if k in ("MYO_PERCEPTION", "MYO_HISTORY", "MYO_GRU_HIDDEN") or k.startswith("MYO_PREVIEW_")]:
+    # MYO_SENSOR_*: a run recorded without them (older runs) must not inherit noise / delay / dropout from the caller's shell
+    for k in [k for k in os.environ if k in ("MYO_PERCEPTION", "MYO_HISTORY", "MYO_GRU_HIDDEN") or k.startswith(("MYO_PREVIEW_", "MYO_SENSOR_"))]:
         del os.environ[k]
     os.environ.update({k: str(v) for k, v in env.items()})
     return env

@@ -15,12 +15,13 @@ from typing import Sequence
 import torch
 from torch import nn
 
-from terrain_memory_prosthesis.common.obs_layout import N_PRIVILEGED, N_PROPRIO
+from terrain_memory_prosthesis.common.obs_layout import N_PRIVILEGED, N_PROPRIO, N_SENSOR_VALIDITY, N_SENSOR_VALUES
 
 
 def n_percept_from(obs_dim: int, n_hist: int) -> int:
-    """Invert obs_dim = 40 + n + 5 + K * (40 + n)."""
-    n, rem = divmod(obs_dim - N_PROPRIO - N_PRIVILEGED - n_hist * N_PROPRIO, n_hist + 1)
+    """Invert obs_dim = 40 + 40 + 40 + n + 5 + K * (40 + 40 + n)   (clean | values | validity | perception | privileged | window)."""
+    sensors = N_SENSOR_VALUES + N_SENSOR_VALIDITY
+    n, rem = divmod(obs_dim - N_PROPRIO - sensors - N_PRIVILEGED - n_hist * sensors, n_hist + 1)
     if rem or n < 0:
         raise ValueError(f"observation size {obs_dim} does not fit a history window of {n_hist} frames")
     return n

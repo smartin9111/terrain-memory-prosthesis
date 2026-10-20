@@ -12,6 +12,8 @@ observation lists - see common/session_config.py) and verifies it numerically wi
 from __future__ import annotations
 
 import torch
+
+from terrain_memory_prosthesis.common.obs_layout import N_PROPRIO, N_SENSOR_VALUES
 from torch import nn
 
 from terrain_memory_prosthesis.controllers.freeze import load_and_freeze_human
@@ -52,11 +54,22 @@ def warm_start(model, stage1_model, n_muscle: int = 18) -> dict:
 
 @torch.no_grad()
 def check_equivalent(model, stage1_model, n_obs_old: int, n: int = 256, seed: int = 0, atol: float = 1e-6) -> float:
-    """Max |difference| between the new and the Stage-1 deterministic actions / values on random observations whose first
-    `n_obs_old` entries are shared (the preview columns are random, too: zero weights must make them irrelevant)."""
+    """Compare deterministic actions/values after making the duplicated sensor block equal to clean proprioception.
+
+    This verifies the zero-imperfection Stage-2 actor reproduces Stage 1; validity/perception/privileged extras must be
+    ignored initially because their added first-layer weights are zero.
+    """
     g = torch.Generator().manual_seed(seed)
     n_obs_new = model.observation_space.shape[0]
     obs = torch.randn(n, n_obs_new, generator=g)
+    # The Stage-2 exo actor now reads the sensor-values block, not the clean base block.
+    # Set that duplicate to the exact same measurements so the zero-effect configuration
+    # must reproduce Stage 1. Validity and any perception columns remain random; warm-start
+    # zero columns must make them irrelevant at initialization.
+    sensor_start = N_PROPRIO
+    sensor_end = sensor_start + N_SENSOR_VALUES
+    if n_obs_new >= sensor_end:
+        obs[:, sensor_start:sensor_end] = obs[:, :N_PROPRIO]
     a_new = model.policy.policy_network.forward_actor(obs)
     a_old = stage1_model.policy.policy_network.forward_actor(obs[:, :n_obs_old])
     v_new = model.policy.policy_network.forward_critic(obs)
