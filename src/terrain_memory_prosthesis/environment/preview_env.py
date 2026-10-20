@@ -1,21 +1,24 @@
-"""Stage-2 environment: MyoAssistLegImitationExo (+ OSL physics, no-flight penalty, per-episode terrain) with two extra observation blocks
+"""Stage-2 environment: MyoAssistLegImitationExo with actor-only sensor imperfections and terrain perception.
 
-    obs = [ proprioceptive 40 | perception block (the prosthesis actor's, size = PerceptionModel.size) | privileged block (clean preview, critic) ]
+    obs = [ clean proprioception 40 | corrupted sensor values 40 | validity 40 | perception | privileged preview 5 ]
 
-(see common/obs_layout.py). The perception model is chosen by the environment variable MYO_PERCEPTION (default "clean_preview";
-P1 = "none"), so it is inherited by SubprocVecEnv workers; model-specific settings are read by the models themselves
-(MYO_PREVIEW_DISTANCES, MYO_PREVIEW_SCALE, MYO_PREVIEW_ZERO, ...). This module only wires: it contains no perception logic.
+(see common/obs_layout.py). The human actor and critic read the clean observations; only the prosthesis actor reads selected channels
+from the corrupted sensor block and matching validity bits. MYO_SENSOR_NOISE_STD, MYO_SENSOR_DELAY_STEPS, and
+MYO_SENSOR_DROPOUT_PROBABILITY configure the sensor model. The perception model is chosen by MYO_PERCEPTION and its own
+settings (MYO_PREVIEW_DISTANCES, MYO_PREVIEW_SCALE, MYO_PREVIEW_ZERO, ...).
 
 Registration happens at import time because SB3's SubprocVecEnv workers are fresh processes that only know the ids registered
 there: the script that creates the env must import this module at top level.
 """
 from __future__ import annotations
 
+import json
 import os
 
 import numpy as np
 
-from terrain_memory_prosthesis.common.obs_layout import N_PRIVILEGED, PERCEPTION_ENV_VAR, PREVIEW_ENV_ID
+from terrain_memory_prosthesis.common.obs_layout import N_PRIVILEGED, N_PROPRIO, PERCEPTION_ENV_VAR, PREVIEW_ENV_ID
+from terrain_memory_prosthesis.common.sensor_effects import ProprioceptiveSensorModel
 from terrain_memory_prosthesis.environment.osl_physics import NoFlightPenaltyMixin, apply_osl_physics
 from terrain_memory_prosthesis.environment.terrain import parse_episodic
 
@@ -44,10 +47,29 @@ def _make_env_class():
     from rl_train.envs.myoassist_leg_imitation_exo import MyoAssistLegImitationExo
 
     class MyoAssistLegImitationExoPreview(NoFlightPenaltyMixin, MyoAssistLegImitationExo):
-        DEFAULT_OBS_KEYS = MyoAssistLegImitationExo.DEFAULT_OBS_KEYS + ["terrain_percept", "terrain_privileged"]
+        _BASE_OBS_KEYS = list(MyoAssistLegImitationExo.DEFAULT_OBS_KEYS)
+        DEFAULT_OBS_KEYS = _BASE_OBS_KEYS + ["proprio_sensor_values", "proprio_sensor_validity", "terrain_percept", "terrain_privileged"]
 
         def _setup(self, **kwargs):
             self._percept, self._priv = build_perception()
+            def env_parameter(name, default):
+                raw = os.environ.get(name)
+                if raw is None or raw.strip() == "":
+                    return default
+                try:
+                    return json.loads(raw)
+                except json.JSONDecodeError:
+                    # Convenient scalar syntax (e.g. "0.01") as well as JSON lists.
+                    try:
+                        return float(raw)
+                    except ValueError as exc:
+                        raise ValueError(f"{name} must be a scalar or JSON array") from exc
+            self._sensor = ProprioceptiveSensorModel(
+                size=N_PROPRIO,
+                noise_std=env_parameter("MYO_SENSOR_NOISE_STD", 0.0),
+                delay_steps=int(os.environ.get("MYO_SENSOR_DELAY_STEPS", "0")),
+                dropout_probability=env_parameter("MYO_SENSOR_DROPOUT_PROBABILITY", 0.0),
+            )
             super()._setup(**kwargs)
             m = self.sim.model
             apply_osl_physics(getattr(m, "ptr", m))  # same prosthesis physics as the Stage-1 env (hard limit + motor model, see environment/osl_physics.py)
@@ -64,10 +86,17 @@ def _make_env_class():
             if self._episode_terrain is not None:
                 self._episode_terrain.resample(self.sim.model)
             self._percept.reset(kwargs.get("seed"))
+            self._sensor.reset(kwargs.get("seed"))
             return super().reset(**kwargs)
 
         def get_obs_dict(self, sim):
             obs = super().get_obs_dict(sim)
+            clean = np.concatenate([np.asarray(obs[k], dtype=np.float64).reshape(-1) for k in self._BASE_OBS_KEYS])
+            if clean.shape != (N_PROPRIO,):
+                raise ValueError(f"expected {N_PROPRIO} base proprioceptive values, got {clean.shape}")
+            sample = self._sensor.observe(clean)
+            obs["proprio_sensor_values"] = sample.values
+            obs["proprio_sensor_validity"] = sample.validity
             obs["terrain_percept"] = np.asarray(self._percept.observe(sim.model, sim.data), dtype=float)
             obs["terrain_privileged"] = np.asarray(self._priv.observe(sim.model, sim.data), dtype=float)
             return obs

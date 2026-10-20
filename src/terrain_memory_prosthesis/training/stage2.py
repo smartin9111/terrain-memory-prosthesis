@@ -35,6 +35,10 @@ def perception_env(cond: str, perception: str | None, preview_distances: str | N
     env = {PERCEPTION_ENV_VAR: perception or DEFAULT_PERCEPTION[cond]}
     if preview_distances:
         env["MYO_PREVIEW_DISTANCES"] = preview_distances
+    # Record and propagate the exact sensor impairment settings to subprocess workers and evaluation.
+    env["MYO_SENSOR_NOISE_STD"] = os.environ.get("MYO_SENSOR_NOISE_STD", "0")
+    env["MYO_SENSOR_DELAY_STEPS"] = os.environ.get("MYO_SENSOR_DELAY_STEPS", "0")
+    env["MYO_SENSOR_DROPOUT_PROBABILITY"] = os.environ.get("MYO_SENSOR_DROPOUT_PROBABILITY", "0")
     return env
 
 

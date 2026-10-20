@@ -3,15 +3,11 @@
 
 Question : With the Stage-1 human frozen, does a prosthesis actor that sees the terrain ahead (P2) end up measurably
            better on rough terrain than one that sees proprioception only (P1) - after the same short PPO budget?
-Setup    : * env  myoAssistLegImitationExoPreview-v0 (src/terrain_memory_prosthesis/environment/preview_env.py): obs[40:45] = ground height at
-             0.2,0.4,0.6,0.8,1.0 m ahead relative to the pelvis, in units of 10 cm.
-           * Stage 1 human (--stage1 checkpoint) is copied into both conditions and frozen (controllers/freeze.py);
-             the human actor never sees the preview. Only the prosthesis actor is trained.
-           * P1: prosthesis actor input = proprioception.  P2: the same + obs[40:45].  The critic sees obs[0:45] in BOTH
-             (privileged critic, identical across conditions) so the value baseline cannot explain a difference.
-           * Same PPO hyper-parameters, `--seeds` training seeds per condition, trained on ONE random terrain
-             (--train-terrain-seed); evaluation = deterministic, fixed episode seeds, on HELD-OUT terrains
-             (--eval-terrain-seeds) + the training terrain.
+Setup    : * env myoAssistLegImitationExoPreview-v0: clean proprioception 0:40, sensor values 40:80, validity 80:120,
+             perception after 120, and clean privileged terrain preview as the final 5 values.
+           * Stage 1 human is copied and frozen. It continues to read clean proprioception only.
+           * P1: prosthesis actor reads its existing 22 channels from the sensor values plus matching validity bits.
+             P2 adds terrain preview. The critic uses clean proprioception and clean privileged preview in both conditions.
 Verdict  : PASS  P2 better than P1 by >= --min-effect (survived-step fraction) and by more than the between-seed spread
            WARN  inconclusive (no clear difference / too few seeds / floor-or-ceiling effect) - this is the usual outcome
                  of a short run; it is NOT evidence against P2
