@@ -26,6 +26,10 @@ SEEDS="${SEEDS:-0 1 2 3 4 5}"; LEVELS="${LEVELS:-W M S}"; CONDS="${CONDS:-P1 P2}
 LEVEL_W="${LEVEL_W:-0.2 1 0.02}"; LEVEL_M="${LEVEL_M:-0.5 2 0.05}"; LEVEL_S="${LEVEL_S:-1.0 3 0.10}"
 LEVEL_0="${LEVEL_0:-0 0 0}"; LEVEL_N="${LEVEL_N:-0.2 0 0}"; LEVEL_D="${LEVEL_D:-0 2 0}"; LEVEL_R="${LEVEL_R:-0 0 0.10}"
 LEVEL_A="${LEVEL_A:-0.05 0 0}"; LEVEL_B="${LEVEL_B:-0.1 0 0}"
+# PHYSICAL levels: "alpha delay dropout sigma_ang[rad] sigma_vel[rad/s] sigma_force[body weight]" (sigma > 0 overrides alpha).
+# P = practical: encoder/IMU-grade angle 0.005 rad (0.3 deg), velocity 0.1 rad/s (6 deg/s), contact force 0.03 BW, 1 step delay (33 ms), 1% dropout.
+# Q = pessimistic: 4x the noise, 2 steps, 5% dropout.
+LEVEL_P="${LEVEL_P:-0 1 0.01 0.005 0.1 0.03}"; LEVEL_Q="${LEVEL_Q:-0 2 0.05 0.02 0.4 0.12}"
 LOGS="$WS/noise_logs"; mkdir -p "$LOGS"; RES="$WS/myoassist/rl_train/results"
 
 run_job() {  # $1=level $2=cond $3=controller $4=seed
@@ -46,15 +50,15 @@ PY
     MYOASSIST_NUM_THREADS="$THREADS" python "$REPO/scripts/train_stage2.py" --resume "$d" --timesteps "$TOTAL" >> "$log" 2>&1 || echo "FAILED $lv $cond $ctrl $seed (resume)"
     return 0
   fi
-  read -r alpha delay drop <<< "${!var}"
-  eval "$(python "$REPO/scripts/noise_env.py" "$STATS" --alpha "$alpha" --delay "$delay" --dropout "$drop")"
+  read -r alpha delay drop sa sv sf <<< "${!var}"
+  eval "$(python "$REPO/scripts/noise_env.py" "$STATS" --alpha "$alpha" --delay "$delay" --dropout "$drop" --sigma-ang "${sa:-0}" --sigma-vel "${sv:-0}" --sigma-force "${sf:-0}")"
   MYOASSIST_NUM_THREADS="$THREADS" python "$REPO/scripts/train_stage2.py" --stage1-session "$STAGE1" --cond "$cond" --seed "$seed" \
     --timesteps "$TOTAL" --num-envs "$ENVS" --amp-lo 0.02 --amp-hi 0.06 --logfreq 10 --controller "$ctrl" \
     --tag "n$lv" ${HISTORY:+$( [ "$ctrl" = gru ] && echo "--history $HISTORY" )} \
     > "$log" 2>&1 || echo "FAILED $lv $cond $ctrl $seed"
 }
 export -f run_job
-export RES WS REPO STAGE1 STATS ENVS THREADS TOTAL HISTORY LOGS LEVEL_W LEVEL_M LEVEL_S LEVEL_0 LEVEL_N LEVEL_D LEVEL_R LEVEL_A LEVEL_B
+export RES WS REPO STAGE1 STATS ENVS THREADS TOTAL HISTORY LOGS LEVEL_W LEVEL_M LEVEL_S LEVEL_0 LEVEL_N LEVEL_D LEVEL_R LEVEL_A LEVEL_B LEVEL_P LEVEL_Q
 
 STAMP="$(date +%H%M%S)"; JOBS="$LOGS/joblist_$STAMP.txt"; : > "$JOBS"
 for s in $SEEDS; do for lv in $LEVELS; do for c in $CONDS; do for k in $CONTROLLERS; do echo "$lv $c $k $s" >> "$JOBS"; done; done; done; done

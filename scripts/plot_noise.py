@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from terrain_memory_prosthesis.evaluation.analysis import read_rows  # noqa: E402
 
 NAMES = {"clean": "clean\n(old layout)", "0": "clean\n(new layout)", "A": "noise\nα0.05", "B": "noise\nα0.1", "N": "noise\nα0.2", "D": "delay\n2 steps", "R": "dropout\n10%",
-         "W": "W: α0.2,\n1 step, 2%", "M": "M: α0.5,\n2 steps, 5%", "S": "S: α1.0,\n3 steps, 10%"}
+         "P": "practical\n0.3°, 6°/s,\n33 ms, 1%", "Q": "pessimistic\n1.1°, 23°/s,\n67 ms, 5%", "W": "W (stress): α0.2,\n1 step, 2%", "M": "M: α0.5,\n2 steps, 5%", "S": "S: α1.0,\n3 steps, 10%"}
 COLORS = {"P1": "#0072B2", "P2": "#D55E00"}   # Okabe-Ito, as in the other figures
 STYLES = {"C1": ("-", "o"), "K16": ("--", "s")}
 
