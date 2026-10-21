@@ -20,7 +20,12 @@ STATS="${STATS:-$WS/channel_stats/channel_std.json}"
 [ -f "$STATS" ] || { echo "missing $STATS (run scripts/channel_stats.py first)"; exit 1; }
 PAR="${PAR:-24}"; ENVS="${ENVS:-32}"; THREADS="${THREADS:-8}"; TOTAL="${TOTAL:-10000000}"; HISTORY="${HISTORY:-16}"
 SEEDS="${SEEDS:-0 1 2 3 4 5}"; LEVELS="${LEVELS:-W M S}"; CONDS="${CONDS:-P1 P2}"; CONTROLLERS="${CONTROLLERS:-gru mlp}"
-LEVEL_W="0.2 1 0.02"; LEVEL_M="0.5 2 0.05"; LEVEL_S="1.0 3 0.10"   # alpha delay dropout
+# alpha delay dropout. W/M/S = combined (first grid: W ~ +0.2 falls over the clean sensor, M/S ~ 100% falls = no information).
+# 0 = clean sensor in the NEW layout (control); N / D / R = one imperfection alone: noise alpha 0.2 / delay 2 steps / dropout 10%.
+# A / B = weaker noise-only (alpha 0.05 / 0.1). Any level can be redefined from the shell: LEVEL_N="0.3 0 0" LEVELS="N" ...
+LEVEL_W="${LEVEL_W:-0.2 1 0.02}"; LEVEL_M="${LEVEL_M:-0.5 2 0.05}"; LEVEL_S="${LEVEL_S:-1.0 3 0.10}"
+LEVEL_0="${LEVEL_0:-0 0 0}"; LEVEL_N="${LEVEL_N:-0.2 0 0}"; LEVEL_D="${LEVEL_D:-0 2 0}"; LEVEL_R="${LEVEL_R:-0 0 0.10}"
+LEVEL_A="${LEVEL_A:-0.05 0 0}"; LEVEL_B="${LEVEL_B:-0.1 0 0}"
 LOGS="$WS/noise_logs"; mkdir -p "$LOGS"; RES="$WS/myoassist/rl_train/results"
 
 run_job() {  # $1=level $2=cond $3=controller $4=seed
@@ -49,12 +54,12 @@ PY
     > "$log" 2>&1 || echo "FAILED $lv $cond $ctrl $seed"
 }
 export -f run_job
-export RES WS REPO STAGE1 STATS ENVS THREADS TOTAL HISTORY LOGS LEVEL_W LEVEL_M LEVEL_S
+export RES WS REPO STAGE1 STATS ENVS THREADS TOTAL HISTORY LOGS LEVEL_W LEVEL_M LEVEL_S LEVEL_0 LEVEL_N LEVEL_D LEVEL_R LEVEL_A LEVEL_B
 
-JOBS="$LOGS/joblist.txt"; : > "$JOBS"
+STAMP="$(date +%H%M%S)"; JOBS="$LOGS/joblist_$STAMP.txt"; : > "$JOBS"
 for s in $SEEDS; do for lv in $LEVELS; do for c in $CONDS; do for k in $CONTROLLERS; do echo "$lv $c $k $s" >> "$JOBS"; done; done; done; done
 echo "$(wc -l < "$JOBS") runs, $PAR in parallel, $TOTAL steps each, ENVS=$ENVS THREADS=$THREADS"
 if [ "${DRY:-0}" = 1 ]; then cat "$JOBS"; exit 0; fi
-nohup bash -c "xargs -P $PAR -L1 bash -c 'run_job \$0 \$1 \$2 \$3' < '$JOBS'; echo ALL DONE" > "$LOGS/queue.log" 2>&1 &
-echo "started PID $! | queue log: $LOGS/queue.log | per-run logs: $LOGS/"
-echo "progress: ls $WS/myoassist/rl_train/results | grep -c _n ; grep FAILED $LOGS/queue.log"
+nohup bash -c "xargs -P $PAR -L1 bash -c 'run_job \$0 \$1 \$2 \$3' < '$JOBS'; echo ALL DONE" > "$LOGS/queue_$STAMP.log" 2>&1 &
+echo "started PID $! | queue log: $LOGS/queue_$STAMP.log | per-run logs: $LOGS/"
+echo "progress: ls $WS/myoassist/rl_train/results | grep -c _n ; grep FAILED $LOGS/queue_*.log"

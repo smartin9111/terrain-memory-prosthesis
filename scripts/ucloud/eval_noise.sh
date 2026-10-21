@@ -15,6 +15,7 @@ if [ "${WAIT:-0}" = 1 ]; then
   until grep -q "ALL DONE" "$WS/noise_logs/queue.log" 2>/dev/null; do sleep 60; done
   echo "training queue finished $(date)"
 fi
+mkdir -p "$WS/eval_noise"
 cd "$WS/myoassist"
 for lv in $LEVELS; do
   for ctrl in mlp gru; do
