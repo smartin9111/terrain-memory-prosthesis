@@ -30,6 +30,8 @@ def main():
     ap.add_argument("--amp", type=float, default=0.06)
     ap.add_argument("--min-steps", type=float, default=7.9e6)
     ap.add_argument("--out", default="noise_levels")
+    ap.add_argument("--metric", default="falls", choices=["falls", "steps"],
+                    help="falls = fall rate (default); steps = mean steps survived out of 1000 (use it where the fall rate sits at 1.0: strong noise)")
     a = ap.parse_args()
 
     cell = defaultdict(lambda: [0, 0])   # (level, ctrl, cond, seed) -> falls, n
@@ -40,7 +42,8 @@ def main():
             if r["terrain_kind"] != "random" or abs(r["amplitude"] - a.amp) > 1e-9 or r["ckpt_steps"] < a.min_steps:
                 continue
             c = cell[(lv, ctrl, r["cond"], int(r["seed"]))]
-            c[0] += int(r["falls"]); c[1] += int(r["n"])
+            c[0] += int(r["falls"]) if a.metric == "falls" else float(r["mean_steps"]) * int(r["n"])   # episodes weight both metrics
+            c[1] += int(r["n"])
 
     import matplotlib
     matplotlib.use("Agg")
@@ -49,7 +52,7 @@ def main():
     levels = list(dict.fromkeys(i.split("=", 1)[0].split("/")[0] for i in a.items))   # order of the items on the command line
     xs = {lv: i for i, lv in enumerate(levels)}
     fig, ax = plt.subplots(figsize=(8.2, 4.8))
-    lines = ["falls on random terrain %g cm; per training seed (dots), mean over seeds (line)\n" % (a.amp * 100)]
+    lines = [("falls" if a.metric == "falls" else "mean steps survived") + " on random terrain %g cm; per training seed (dots), mean over seeds (line)\n" % (a.amp * 100)]
     lines.append(f"{'level':7} {'ctrl':5} {'cond':4} {'mean':>6} {'min':>6} {'max':>6}  seeds")
     jit = {("P1", "C1"): -0.09, ("P1", "K16"): -0.03, ("P2", "C1"): 0.03, ("P2", "K16"): 0.09}
     for ctrl in ("C1", "K16"):
@@ -66,10 +69,10 @@ def main():
             ax.plot(px, py, STYLES[ctrl][0], color=COLORS[cond], marker=STYLES[ctrl][1], ms=6, lw=1.8, label=f"{cond} {ctrl}")
     ax.set_xticks(range(len(levels)))
     ax.set_xticklabels([NAMES.get(lv, lv) for lv in levels], fontsize=9)
-    ax.set_ylabel("fall rate")
-    ax.set_ylim(-0.02, 1.02)
+    ax.set_ylabel("fall rate" if a.metric == "falls" else "mean steps survived (of 1000)")
+    ax.set_ylim(-0.02, 1.02) if a.metric == "falls" else ax.set_ylim(0, 1000)
     ax.set_xlim(-0.4, len(levels) - 0.6)
-    ax.set_title("Falls vs. sensor imperfection (prosthesis controller)", fontsize=11, loc="left")
+    ax.set_title(("Falls" if a.metric == "falls" else "Survival time") + " vs. sensor imperfection (prosthesis controller)", fontsize=11, loc="left")
     ax.grid(axis="y", alpha=0.25)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
