@@ -19,7 +19,7 @@ CONTROLLER_NAMES = {"mlp": "C1", "gru": "C2"}
 COLORS = {"P1": "#0072B2", "P2": "#D55E00", "Stage 1": "#555555"}  # colour-blind safe (Okabe-Ito)
 LINESTYLES = {"C1": "-", "C2": "--", "": ":"}
 WEIGHTED = ("steps_frac", "mean_distance_m", "speed_err_mps", "mean_abs_prosthesis_cmd", "mean_steps", "mean_speed_mps")
-NUMERIC = ("ckpt_steps", "amplitude", "terrain_seed", "n", "falls", "fall_rate", "fall_ci_lo", "fall_ci_hi", "seed") + WEIGHTED
+NUMERIC = ("ckpt_steps", "amplitude", "terrain_seed", "n", "falls", "fall_rate", "fall_ci_lo", "fall_ci_hi", "seed", "mean_return", "mean_reward_per_step") + WEIGHTED
 
 
 def read_rows(path: str) -> list[dict]:

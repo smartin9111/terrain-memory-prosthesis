@@ -105,13 +105,13 @@ def main():
     noisy = [l for l in a.noisy.split(",") if l in levels]
     ctrls = sorted({k[1] for k in cell})
     print(f"metric: {a.metric}, random terrain {a.amp * 100:g} cm, last checkpoint of every run, unit = training seed\n")
-    print("cells (mean [min, max], n seeds):")
+    print("cells (mean, SD over seeds, [min, max], n seeds):")
     for lv in levels:
         for c in ctrls:
             for p in ("P1", "P2"):
                 v = cell.get((lv, c, p))
                 if v:
-                    print(f"  {lv:6}{c:5}{p:3} {np.mean(v):8.1f} [{min(v):7.1f},{max(v):7.1f}] n={len(v)}")
+                    print(f"  {lv:6}{c:5}{p:3} {np.mean(v):8.1f} SD {np.std(v, ddof=1) if len(v) > 1 else float('nan'):6.1f} [{min(v):7.1f},{max(v):7.1f}] n={len(v)}")
 
     def report(title, rows):
         print(f"\n{title}")

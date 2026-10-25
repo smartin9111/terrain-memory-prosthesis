@@ -10,19 +10,20 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 WS="${WS:-$(cd "$HERE/../../.." && pwd)}"
 [ -f "$WS/.ucloud_env.sh" ] && source "$WS/.ucloud_env.sh"
 REPO="$WS/terrain-memory-prosthesis"; RES="$WS/myoassist/rl_train/results"
+OUT="${OUT:-$WS/eval_noise}"   # OUT=$WS/eval_noise_r : re-evaluate into a NEW folder (e.g. to add the reward columns) without touching the old csv
 WORKERS="${WORKERS:-288}"; EPISODES="${EPISODES:-20}"; CKPTS="${CKPTS:-8}"; LEVELS="${LEVELS:-W M S}"
 if [ "${WAIT:-0}" = 1 ]; then
   until grep -q "ALL DONE" "$WS/noise_logs/queue.log" 2>/dev/null; do sleep 60; done
   echo "training queue finished $(date)"
 fi
-mkdir -p "$WS/eval_noise"
+mkdir -p "$OUT"
 cd "$WS/myoassist"
 for lv in $LEVELS; do
   for ctrl in mlp gru; do
     ls -d "$RES"/stage2_P*_"${ctrl}"_s*_n"${lv}"_* > /dev/null 2>&1 || { echo "no runs for $lv $ctrl"; continue; }
     echo "=== eval $lv $ctrl $(date)"
     python "$REPO/scripts/eval_stage2.py" --runs "$RES"/stage2_P*_"${ctrl}"_s*_n"${lv}"_* --ckpts "$CKPTS" --episodes "$EPISODES" \
-      --workers "$WORKERS" --out "$WS/eval_noise/${lv}_${ctrl}" > "$WS/eval_noise/log_${lv}_${ctrl}.txt" 2>&1 || echo "FAILED eval $lv $ctrl"
+      --workers "$WORKERS" --out "$OUT/${lv}_${ctrl}" > "$OUT/log_${lv}_${ctrl}.txt" 2>&1 || echo "FAILED eval $lv $ctrl"
   done
 done
 echo "EVAL DONE $(date)"

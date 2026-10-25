@@ -83,13 +83,14 @@ def run_episodes(model, env, n_episodes: int, max_steps: int, seeds: list[int] |
         with seeded_rng(seed):
             obs, _ = env.reset()
         x0 = float(env.sim.data.joint("pelvis_tx").qpos[0])
-        verr, cmd, steps, fell = [], [], 0, False
+        verr, cmd, steps, fell, ret = [], [], 0, False, 0.0
         for t in range(max_steps):
             a, _ = model.predict(obs, deterministic=True)
             if perturb is not None:
                 a = perturb(a)
             obs, _r, terminated, truncated, _info = env.step(a)
             steps += 1
+            ret += float(_r)
             verr.append(abs(float(env.sim.data.joint("pelvis_tx").qvel[0]) - target))
             if dev:
                 cmd.append(float(np.mean(np.abs(np.asarray(a)[dev]))))
@@ -109,6 +110,8 @@ def run_episodes(model, env, n_episodes: int, max_steps: int, seeds: list[int] |
                 "speed": dist / (steps * env.dt) if steps else 0.0,
                 "speed_err": float(np.mean(verr)) if verr else float("nan"),
                 "prosthesis_cmd": float(np.mean(cmd)) if cmd else 0.0,
+                "reward": ret,
+                "reward_per_step": ret / steps if steps else 0.0,
             }
         )
     return out
@@ -123,7 +126,7 @@ def eval_task(task: dict) -> dict:
     """
     init(task.get("root"))
     if task.get("env") is not None:  # the run's perception settings (must match training); replaces any left over from a previous task
-        for k in [k for k in os.environ if k == "MYO_PERCEPTION" or k.startswith(("MYO_PREVIEW_", "MYO_SENSOR_"))]:
+        for k in [k for k in os.environ if k == "MYO_PERCEPTION" or k.startswith(("MYO_PREVIEW_", "MYO_SENSOR_", "MYO_GRU_ABLATE"))]:
             del os.environ[k]
         os.environ.update({k: str(v) for k, v in task["env"].items()})
     cfg = load_config(task["config"])

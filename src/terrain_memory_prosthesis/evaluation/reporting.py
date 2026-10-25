@@ -23,6 +23,7 @@ def summarize(episodes: list[dict]) -> dict:
     k = sum(1 for e in episodes if e["fell"])
     lo, hi = wilson_ci(k, n)
     mean = lambda key: (sum(e[key] for e in episodes) / n) if n else float("nan")
+    mean_opt = lambda key: (sum(e[key] for e in episodes if key in e) / max(1, sum(1 for e in episodes if key in e))) if n else float("nan")
     return {
         "n": n,
         "falls": k,
@@ -34,6 +35,8 @@ def summarize(episodes: list[dict]) -> dict:
         "mean_speed_mps": mean("speed"),
         "speed_err_mps": mean("speed_err"),
         "mean_abs_prosthesis_cmd": mean("prosthesis_cmd"),
+        "mean_return": mean_opt("reward"),            # the environment's own reward summed over the episode (absent in old rows)
+        "mean_reward_per_step": mean_opt("reward_per_step"),
     }
 
 

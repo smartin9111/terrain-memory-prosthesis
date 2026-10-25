@@ -30,6 +30,9 @@ def parse():
     ap.add_argument("--terrain", default="flat", choices=["flat", "random", "sinusoidal"])
     ap.add_argument("--amplitude", type=float, default=0.005)
     ap.add_argument("--terrain-seed", type=int, default=0)
+    ap.add_argument("--extent", type=float, default=160.0, help="terrain size [m]; 160 / 640 cells = the geometry of training and of eval_stage2.py "
+                    "(another cell size makes even a flat-trained gait fall; the older pilot default was 60 / 768)")
+    ap.add_argument("--resolution", type=int, default=640)
     ap.add_argument("--width", type=int, default=640)
     ap.add_argument("--height", type=int, default=480)
     ap.add_argument("--distance", type=float, default=3.2, help="camera distance [m]")
@@ -53,7 +56,7 @@ def main():
 
     cfg = common.load_config(args.session)
     if args.terrain != "flat":
-        cfg.env_params.terrain = common.terrain_spec(args.terrain, args.amplitude, args.terrain_seed)
+        cfg.env_params.terrain = common.terrain_spec(args.terrain, args.amplitude, args.terrain_seed, extent=args.extent, resolution=args.resolution)
     ck = common.resolve(args.checkpoint) if args.checkpoint else common.list_checkpoints(args.session)[-1][1]
     print("checkpoint:", ck)
     env = common.make_eval_env(cfg, args.max_steps, args.target_velocity)

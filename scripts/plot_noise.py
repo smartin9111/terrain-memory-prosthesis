@@ -6,7 +6,7 @@
 
 Item = LEVEL/CONTROLLER=csv (level: any name, order = first appearance; known names get a label; controller: C1 K16; the same item twice merges seeds). Only random terrain of the given
 amplitude and checkpoints >= --min-steps are used; per seed fall rate = falls / episodes over those checkpoints and terrain seeds.
-The statistics are over TRAINING SEEDS (the unit that varies between runs), not over episodes: mean and range, no confidence interval
+The statistics are over TRAINING SEEDS (the unit that varies between runs), not over episodes: mean, SD (ddof=1; error bars = +-1 SD) and range, no confidence interval
 from pooled episodes. 'clean' = the old observation layout (before the sensor model): same task, a reference, not a strict control.
 Writes <out>.png and <out>.txt (table).
 """
@@ -14,6 +14,8 @@ import argparse
 import os
 import sys
 from collections import defaultdict
+
+import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 from terrain_memory_prosthesis.evaluation.analysis import read_rows  # noqa: E402
@@ -53,11 +55,11 @@ def main():
     xs = {lv: i for i, lv in enumerate(levels)}
     fig, ax = plt.subplots(figsize=(8.2, 4.8))
     lines = [("falls" if a.metric == "falls" else "mean steps survived") + " on random terrain %g cm; per training seed (dots), mean over seeds (line)\n" % (a.amp * 100)]
-    lines.append(f"{'level':7} {'ctrl':5} {'cond':4} {'mean':>6} {'min':>6} {'max':>6}  seeds")
+    lines.append(f"{'level':7} {'ctrl':5} {'cond':4} {'mean':>6} {'SD':>6} {'min':>6} {'max':>6}  seeds")
     jit = {("P1", "C1"): -0.09, ("P1", "K16"): -0.03, ("P2", "C1"): 0.03, ("P2", "K16"): 0.09}
     for ctrl in ("C1", "K16"):
         for cond in ("P1", "P2"):
-            px, py = [], []
+            px, py, ps = [], [], []
             for lv in levels:
                 v = [f / n for (l, c, p, s), (f, n) in sorted(cell.items()) if (l, c, p) == (lv, ctrl, cond) and n]
                 if not v:
@@ -65,7 +67,9 @@ def main():
                 x = xs[lv] + jit[(cond, ctrl)]
                 ax.scatter([x] * len(v), v, s=14, alpha=0.45, color=COLORS[cond], marker=STYLES[ctrl][1], linewidths=0)
                 px.append(x); py.append(sum(v) / len(v))
-                lines.append(f"{lv:7} {ctrl:5} {cond:4} {py[-1]:6.2f} {min(v):6.2f} {max(v):6.2f}  {len(v)}")
+                ps.append(float(np.std(v, ddof=1)) if len(v) > 1 else 0.0)
+                lines.append(f"{lv:7} {ctrl:5} {cond:4} {py[-1]:6.2f} {ps[-1]:6.2f} {min(v):6.2f} {max(v):6.2f}  {len(v)}")
+            ax.errorbar(px, py, yerr=ps, fmt='none', ecolor=COLORS[cond], elinewidth=1.1, capsize=3, alpha=0.8)   # +-1 SD over training seeds
             ax.plot(px, py, STYLES[ctrl][0], color=COLORS[cond], marker=STYLES[ctrl][1], ms=6, lw=1.8, label=f"{cond} {ctrl}")
     ax.set_xticks(range(len(levels)))
     ax.set_xticklabels([NAMES.get(lv, lv) for lv in levels], fontsize=9)
