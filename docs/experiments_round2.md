@@ -8,6 +8,7 @@ All use the same recipe as the first noise grid (10 M steps, 32 envs, rollout 16
 | How much preview is needed? | `horizon`: P2 with the first 1, 2, 3, 4 look-ahead points (0.2 ... 0.8 m), C1 and C2, level P | 32 | no preview (P1) and five points up to 1.0 m (P2), level P |
 | Which imperfection hurts, and does memory help against it? | `factors`: noise only / delay only / dropout only, each at the size of level Q, P2, C1 and C2 | 24 | Q (all three together) and 0 (clean), P2 |
 | Does the GRU setting matter? | `gru`: window K = 8, 32 (hidden 32) and hidden 16, 64 (K = 16), level P, P2, C2 | 16 | K = 16, hidden 32 (level P, P2) |
+| How long a window? (wider range) | `gruk`: K = 4 and K = 64, hidden 32, level P, P2, C2 | 8 | K = 8, 16, 32 from `gru` |
 | Is the memory effect real? | replication seeds 4-7, levels P and Q, P2 | 16 | seeds 0-3, same tags |
 | Does C2 use its history? | `scripts/gru_ablation.py` (evaluation only) | 0 | the real window |
 | Reward, SD, error bars | re-evaluation of the existing runs into a new folder | 0 | - |
@@ -82,3 +83,12 @@ python scripts/compare_groups.py "C1 P2=$E/P_mlp/stage2_eval.csv@P2" "C2 P2=$W/e
 * The ablation says whether the memory is used, not whether it is useful in other conditions.
 * The first report figure pooled the checkpoints from 7.9 M steps (`plot_noise.py`); `seed_stats.py` and `compare_groups.py` use only the last checkpoint
   (differences < 15 steps in the first grid). With the single-checkpoint folder `eval_noise_r` all tools give the same means.
+
+## The overview of what is in the folders
+
+```bash
+python scripts/summarize_results.py --results $R --eval $W/eval_noise_r $W/eval_exp --out $W/summary_$(date +%Y%m%d-%H%M)
+```
+`inventory.md|csv` (one row per run: tag, condition, controller, seed, window K and seconds, GRU hidden, preview distances, sensor noise, steps trained,
+steps survived / fall rate / reward), `groups.md` (mean, SD, n per configuration) and `gru_window.png|txt` (steps survived against the window length and
+against the hidden size, with the C1 band). Everything is read from each run's `stage2_info.json`, so new tags are picked up without changing the script.

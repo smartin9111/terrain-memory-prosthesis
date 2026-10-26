@@ -10,7 +10,7 @@ WS="${WS:-$(cd "$HERE/../../.." && pwd)}"
 [ -f "$WS/.ucloud_env.sh" ] && source "$WS/.ucloud_env.sh"
 REPO="$WS/terrain-memory-prosthesis"; RES="$WS/myoassist/rl_train/results"
 WORKERS="${WORKERS:-288}"; EPISODES="${EPISODES:-20}"; CKPTS="${CKPTS:-1}"
-TAGS="${TAGS:-hz1 hz2 hz3 hz4 fN fD fR g8_32 g32_32 g16_16 g16_64}"
+TAGS="${TAGS:-hz1 hz2 hz3 hz4 fN fD fR g8_32 g32_32 g16_16 g16_64 g4_32 g64_32}"
 mkdir -p "$WS/eval_exp"
 cd "$WS/myoassist"
 for tag in $TAGS; do

@@ -8,12 +8,13 @@
 #          (reference points that already exist: no preview = P1 at level P, five points up to 1.0 m = P2 at level P.)   32 runs
 # factors  noise / delay / dropout ONE AT A TIME at the size of level Q, P2, C1 and C2, seeds 0-3 (Q itself = the three together).   24 runs
 # gru      GRU window length K and hidden size, level P, P2, C2 only, seeds 0-3 (reference K=16, hidden 32 = the existing runs).   16 runs
+# gruk     a wider window range: K = 4 (0.13 s) and K = 64 (2.1 s), hidden 32, level P, P2, C2 only, seeds 0-3.   8 runs (K = 64 is the slowest run of all)
 # Replication seeds are NOT here: LEVELS="P Q" CONDS="P2" SEEDS="4 5 6 7" PAR=16 bash scripts/ucloud/noise_grid.sh   (same tags as the first grid)
 #
 # Order: seed by seed, so a stopped queue leaves complete seeds. Re-running continues existing runs (--resume with their own recorded
 # noise) and starts the missing ones; only do that when the old queue is dead (pgrep -f train_stage2).
 # Run directory: $WS/myoassist/rl_train/results/stage2_<cond>_<mlp|gru>_s<seed>_<tag>_<stamp>/ ; logs: $WS/exp_logs/
-# Tags: hz1..hz4 (number of preview points), fN fD fR (noise / delay / dropout alone), g8_32 g32_32 g16_16 g16_64 (K_hidden)
+# Tags: hz1..hz4 (number of preview points), fN fD fR (noise / delay / dropout alone), g8_32 g32_32 g16_16 g16_64 (K_hidden), g4_32 g64_32 (gruk)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WS="${WS:-$(cd "$HERE/../../.." && pwd)}"
@@ -73,6 +74,11 @@ for s in $SEEDS; do
         done ;;
       gru)
         for v in "8 32" "32 32" "16 16" "16 64"; do
+          set -- $v
+          echo "g$1_$2 P P2 gru $s --history=$1@--gru-hidden=$2" >> "$JOBS"
+        done ;;
+      gruk)
+        for v in "4 32" "64 32"; do
           set -- $v
           echo "g$1_$2 P P2 gru $s --history=$1@--gru-hidden=$2" >> "$JOBS"
         done ;;
